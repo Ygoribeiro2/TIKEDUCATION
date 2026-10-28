@@ -125,7 +125,7 @@
   <main id="feed-container" class="snap-container hide-scrollbar">
     <div id="loading-state" class="h-screen w-full flex flex-col justify-center items-center p-6 text-center">
       <i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-500 mb-3"></i>
-      <h3 class="text-sm font-bold text-gray-300">A carregar notícias e fatos com Gemini IA...</h3>
+      <h3 class="text-sm font-bold text-gray-300">A carregar feed inteligente com Gemini IA...</h3>
     </div>
   </main>
 
@@ -300,7 +300,6 @@
 
   <script>
     const GEMINI_API_KEY = 'AIzaSyBm8sfb4JqHfwBEqc_7c0bbAmxwtVJYt04';
-    const CURRENTS_API_KEY = 'sI4_MxTyZXaZZCfOE2yCfVUVssmI6BiCttH4b1wEQc7Mk_86';
     const DEFAULT_BG = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&q=80';
 
     const PROFILES_DATABASE = {
@@ -512,9 +511,9 @@
       return `https://pt.wikipedia.org/w/index.php?search=${encodeURIComponent(cleanQuery)}`;
     }
 
-    // GERAÇÃO DE NOTÍCIAS DIÁRIAS VIA GEMINI IA SE A CURRENTS API FALHAR/AGOTAR
+    // GERADOR EM MASSA DE NOTÍCIAS DIÁRIAS VIA GEMINI IA
     async function fetchGeminiFreshNews() {
-      const prompt = `Gere 5 notícias e acontecimentos globais de grande destaque atual em português em formato JSON simples.
+      const prompt = `Gere 6 notícias e acontecimentos globais de grande destaque atual em português em formato JSON simples.
 Cada objeto no array JSON deve conter:
 - "category": ("Tecnologia", "Mundo", "Economia", "Ciência" ou "Cultura")
 - "title": Título jornalístico chamativo e atual (max 85 chars)
@@ -560,16 +559,10 @@ Cada objeto no array JSON deve conter:
       }
     }
 
-    // CHAMADA Á API DO GEMINI PARA GERAR FATOS DIVERSOS
+    // GERADOR DE FATOS DIVERSOS VIA GEMINI IA
     async function fetchGeminiFacts() {
-      const prompt = `Gere exatamente 5 fatos/curiosidades fascinantes e verídicos em português em formato JSON simples. 
-Cada fato deve cobrir OBRIGATORIAMENTE um destes 5 tópicos diferentes:
-1. Tópico 'history': Um fato histórico marcante de algum século passado ("Neste Dia na História" ou evento militar/político/social).
-2. Tópico 'science': Uma curiosidade incrível sobre o espaço, astronomia, física ou biologia.
-3. Tópico 'world': Uma curiosidade cultural/geográfica única sobre um país ou povo do mundo.
-4. Tópico 'technology': Um fato sobre a história dos videogames, invenção do computador ou evolução da IA.
-5. Tópico 'psychology': Um fato científico sobre o cérebro humano, comportamento ou psicologia.
-
+      const prompt = `Gere exatamente 6 fatos/curiosidades fascinantes e verídicos em português em formato JSON simples. 
+Cada fato deve cobrir OBRIGATORIAMENTE um destes tópicos diferentes: history, science, world, technology, psychology.
 Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação markdown extra, cada objeto contendo:
 - "topic": (um de 'history', 'science', 'world', 'technology', 'psychology')
 - "title": Título curto e impactante (max 80 chars)
@@ -607,14 +600,6 @@ Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação mar
           'psychology': '🧠 Psicologia'
         };
 
-        const fallbackImages = {
-          'history': 'https://images.unsplash.com/photo-1461360370896-922624d12aa1?auto=format&fit=crop&w=1200&q=80',
-          'science': 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80',
-          'world': 'https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?auto=format&fit=crop&w=1200&q=80',
-          'technology': 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80',
-          'psychology': 'https://images.unsplash.com/photo-1507413245164-6160d8298b31?auto=format&fit=crop&w=1200&q=80'
-        };
-
         return factsArray.map((item, idx) => {
           const prof = profileMap[item.topic] || PROFILES_DATABASE['fatos_historicos'];
           const newsId = `gemini-fact-${item.topic}-${Date.now()}-${idx}`;
@@ -633,7 +618,7 @@ Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação mar
             url: generateWikiUrl(titleClean),
             author: prof.name,
             published: 'Hoje (Gemini IA)',
-            bgImage: item.imageUrl || fallbackImages[item.topic] || DEFAULT_BG,
+            bgImage: item.imageUrl || DEFAULT_BG,
             likesCount: Math.floor(Math.random() * 55000) + 3200,
             commentsCount: Math.floor(Math.random() * 1200) + 110,
             isAiFact: true
@@ -671,45 +656,6 @@ Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação mar
           bgImage: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80',
           likesCount: 38900,
           commentsCount: 290
-        },
-        {
-          id: 'fact-loc-3',
-          profile: PROFILES_DATABASE['cultura_curiosidades'],
-          category: '🗿 Cultura & Mundo',
-          title: 'A Finlândia possui mais saunas do que carros particulares em todo o país',
-          description: 'Com mais de 3 milhões de saunas para 5,5 milhões de habitantes, a sauna faz parte da cultura e diplomacia do país nórdico.',
-          url: 'https://pt.wikipedia.org/wiki/Sauna_finlandesa',
-          author: PROFILES_DATABASE['cultura_curiosidades'].name,
-          published: 'Curiosidades',
-          bgImage: 'https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?auto=format&fit=crop&w=1200&q=80',
-          likesCount: 29500,
-          commentsCount: 150
-        },
-        {
-          id: 'fact-loc-4',
-          profile: PROFILES_DATABASE['tech_evolution'],
-          category: '💻 Tech & Games',
-          title: 'O primeiro bug de computador da história foi literalmente um inseto de verdade',
-          description: 'Em 1947, a cientista Grace Hopper encontrou uma mariposa presa nos relés do computador Harvard Mark II, dando origem ao termo "bug".',
-          url: 'https://pt.wikipedia.org/wiki/Bug',
-          author: PROFILES_DATABASE['tech_evolution'].name,
-          published: 'História Tech',
-          bgImage: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80',
-          likesCount: 51000,
-          commentsCount: 620
-        },
-        {
-          id: 'fact-loc-5',
-          profile: PROFILES_DATABASE['mente_comportamento'],
-          category: '🧠 Psicologia',
-          title: 'O efeito Déjà Vu ocorre devido a um pequeno atraso no processamento neural',
-          description: 'Acontece quando o cérebro armazena uma percepção diretamente na memória de longo prazo antes da consciência processá-la no presente.',
-          url: 'https://pt.wikipedia.org/wiki/D%C3%A9j%C3%A0_vu',
-          author: PROFILES_DATABASE['mente_comportamento'].name,
-          published: 'Neurociência',
-          bgImage: 'https://images.unsplash.com/photo-1507413245164-6160d8298b31?auto=format&fit=crop&w=1200&q=80',
-          likesCount: 34200,
-          commentsCount: 210
         }
       ];
     }
@@ -719,40 +665,23 @@ Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação mar
       feedContainer.innerHTML = `
         <div class="h-screen w-full flex flex-col justify-center items-center p-6 text-center">
           <i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-500 mb-3"></i>
-          <h3 class="text-sm font-bold text-gray-300">A carregar notícias e fatos...</h3>
+          <h3 class="text-sm font-bold text-gray-300">A carregar feed inteligente com Gemini IA...</h3>
         </div>
       `;
 
-      let realNews = [];
-      try {
-        const url = `https://api.currentsapi.services/v1/latest-news?apiKey=${CURRENTS_API_KEY}&language=pt`;
-        const res = await fetch(url);
-        const data = await res.json();
+      // Carrega em paralelo notícias recentes e fatos fascinantes gerados pela IA
+      const [freshNews, geminiFacts] = await Promise.all([
+        fetchGeminiFreshNews(),
+        fetchGeminiFacts()
+      ]);
 
-        if (data.status === 'ok' && data.news && data.news.length > 0) {
-          realNews = data.news.map((item, idx) => ({
-            id: item.id || `news-${idx}`,
-            profile: (idx % 2 === 0) ? PROFILES_DATABASE['g1'] : PROFILES_DATABASE['bbc'],
-            category: (item.category && item.category[0]) ? item.category[0] : 'Notícia',
-            title: cleanText(item.title),
-            description: cleanText(item.description),
-            url: item.url,
-            author: (idx % 2 === 0) ? PROFILES_DATABASE['g1'].name : PROFILES_DATABASE['bbc'].name,
-            published: item.published ? new Date(item.published).toLocaleDateString('pt-BR') : 'Hoje',
-            bgImage: (item.image && item.image !== 'None') ? item.image : DEFAULT_BG,
-            likesCount: Math.floor(Math.random() * 45000) + 1200,
-            commentsCount: Math.floor(Math.random() * 800) + 45
-          }));
-        }
-      } catch (e) {}
+      const localFacts = generateFallbackFactsLocally();
+      newsData = [...freshNews, ...geminiFacts, ...localFacts];
 
-      // Se a Currents API falhar ou estiver com quota esgotada, gera notícias atuais via Gemini IA
-      if (realNews.length === 0) {
-        realNews = await fetchGeminiFreshNews();
+      if (newsData.length === 0) {
+        newsData = localFacts;
       }
 
-      const geminiFacts = await fetchGeminiFacts();
-      newsData = [...realNews, ...geminiFacts];
       currentFilteredNews = shuffleArray(newsData);
       renderFeed();
     }

@@ -20,13 +20,17 @@
     html, body {
       margin: 0;
       padding: 0;
-      background: #000;
+      background: #050816;
       color: #fff;
       height: 100%;
     }
 
     body {
       overflow: hidden;
+      background:
+        radial-gradient(circle at top, rgba(99,102,241,0.24), transparent 25%),
+        radial-gradient(circle at bottom right, rgba(16,185,129,0.14), transparent 30%),
+        #050816;
     }
 
     .snap-container {
@@ -47,12 +51,26 @@
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
     .glass-pill {
-      background: rgba(0, 0, 0, 0.5);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(15, 23, 42, 0.5);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
     }
 
-    .empty-state { 
+    .topic-card {
+      background: rgba(15,23,42,0.7);
+      border: 1px solid rgba(255,255,255,0.08);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .topic-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(99,102,241,0.8);
+    }
+
+    .empty-state {
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -61,6 +79,17 @@
       gap: 16px;
       text-align: center;
       padding: 24px;
+    }
+
+    .category-chip {
+      transition: all 0.2s ease;
+    }
+
+    .category-chip.active {
+      background: linear-gradient(135deg, #4f46e5, #8b5cf6);
+      color: white;
+      border-color: rgba(255,255,255,0.3);
+      box-shadow: 0 12px 24px rgba(79,70,229,0.35);
     }
   </style>
 </head>
@@ -71,10 +100,31 @@
   </header>
 
   <main id="feed-container" class="snap-container hide-scrollbar" aria-live="polite">
-    <div id="loading-screen" class="h-screen w-full flex flex-col justify-center items-center">
-      <i class="fa-solid fa-circle-notch fa-spin text-4xl text-indigo-500 mb-4" aria-hidden="true"></i>
-      <p id="loading-text" class="text-gray-400 font-semibold text-sm">A procurar as últimas notícias...</p>
-    </div>
+    <section id="home-shell" class="min-h-screen w-full px-4 sm:px-6 pt-20 pb-10 overflow-y-auto">
+      <div class="max-w-6xl mx-auto">
+        <div class="mb-5">
+          <p class="text-xs uppercase tracking-[0.25em] text-indigo-300 font-semibold">Feed inteligente</p>
+          <h2 class="mt-3 text-2xl sm:text-3xl font-black text-white">Sua dose diária de notícias e curiosidades</h2>
+        </div>
+
+        <div id="category-bar" class="mb-6 flex gap-2 flex-wrap"></div>
+
+        <div class="mb-8">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-lg font-bold text-white">Topics em destaque</h3>
+            <button id="refresh-topics" class="px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs font-semibold text-gray-200">Atualizar</button>
+          </div>
+          <div id="topic-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3"></div>
+        </div>
+
+        <div class="mb-4 flex items-center justify-between">
+          <h3 class="text-lg font-bold text-white">Últimas notícias</h3>
+          <span id="news-counter" class="text-xs text-gray-400">0 itens</span>
+        </div>
+
+        <div id="news-feed" class="space-y-4 pb-8"></div>
+      </div>
+    </section>
   </main>
 
   <div id="infinite-loader" class="hidden h-32 w-full flex justify-center items-center bg-black" aria-hidden="true">
@@ -85,6 +135,39 @@
     const CURRENTS_API_KEY = 'sI4_MxTyZXaZZCfOE2yCfVUVssmI6BiCttH4b1wEQc7Mk_86';
     const DEFAULT_BG = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&q=80';
 
+    const categories = [
+      { id: 'all', label: 'Tudo', icon: 'fa-solid fa-grid-2x2' },
+      { id: 'curiosidades', label: 'Curiosidades', icon: 'fa-solid fa-wand-sparkles' },
+      { id: 'historia', label: 'História', icon: 'fa-solid fa-landmark' },
+      { id: 'ciencia', label: 'Ciência', icon: 'fa-solid fa-flask' },
+      { id: 'tecnologia', label: 'Tecnologia', icon: 'fa-solid fa-microchip' },
+      { id: 'saude', label: 'Saúde', icon: 'fa-solid fa-heart-pulse' },
+      { id: 'educacao', label: 'Educação', icon: 'fa-solid fa-book-open' },
+      { id: 'meio-ambiente', label: 'Meio Ambiente', icon: 'fa-solid fa-seedling' },
+      { id: 'inovacao', label: 'Inovação', icon: 'fa-solid fa-rocket' },
+      { id: 'ia', label: 'IA', icon: 'fa-solid fa-brain' }
+    ];
+
+    const defaultTopics = [
+      { title: 'Por que o cérebro prefere padrões?', category: 'curiosidades', summary: 'Descubra como o cérebro reconhece padrões e por que isso influencia decisões rápidas.' },
+      { title: 'Os mistérios das pirâmides que ainda intrigam arqueólogos', category: 'historia', summary: 'Métodos antigos, engenharia complexa e histórias que continuam sendo debatidas.' },
+      { title: 'A física por trás de uma simples queda de água', category: 'ciencia', summary: 'Energia, pressão e movimento em ação em um fenômeno cotidiano.' },
+      { title: 'A nova geração de chips quânticos', category: 'tecnologia', summary: 'Pesquisadores buscam reduzir erros e ampliar desempenho em computação quântica.' },
+      { title: 'O impacto do sono em memória e criatividade', category: 'saude', summary: 'Como o descanso influencia a aprendizagem e a capacidade de criar soluções.' },
+      { title: 'Como a música muda a forma como aprendemos', category: 'educacao', summary: 'Estudos mostram que ritmo, atenção e repetição influenciam a retenção.' },
+      { title: 'Florestas urbanas e o calor das cidades', category: 'meio-ambiente', summary: 'Árvores e vegetação ajudam a reduzir temperatura e melhorar qualidade do ar.' },
+      { title: 'A revolução dos materiais leves', category: 'inovacao', summary: 'Materiais mais resistentes e leves transformam mobilidade, saúde e construção.' },
+      { title: 'IA pode ajudar a detectar doenças antes', category: 'ia', summary: 'Modelos inteligentes já ajudam na triagem e no acompanhamento clínico.' },
+      { title: 'Dois mil anos de histórias em uma cidade', category: 'historia', summary: 'Cidades antigas preservam memórias em ruas, monumentos e tradições.' },
+      { title: 'Por que alguns animais enxergam o mundo diferente?', category: 'curiosidades', summary: 'Sensação, visão e adaptação em diferentes espécies do planeta.' },
+      { title: 'A ciência por trás dos sentimentos de curiosidade', category: 'ciencia', summary: 'A curiosidade ativa o cérebro e aumenta nossa vontade de aprender.' },
+      { title: 'A educação que nasce no celular', category: 'educacao', summary: 'Apps e plataformas estão transformando a forma como aprendemos e revisamos conteúdos.' },
+      { title: 'O futuro dos carros elétricos em escala global', category: 'tecnologia', summary: 'Infraestrutura, baterias e mudanças de comportamento no transporte.' },
+      { title: 'Como cidades sustentáveis reinventam o espaço urbano', category: 'meio-ambiente', summary: 'Mobilidade, energia e arquitetura ambiental moldam o futuro das metrópoles.' }
+    ];
+
+    let activeCategory = 'all';
+    let allNews = [];
     let currentPage = 1;
     let isFetching = false;
     let hasMoreNews = true;
@@ -92,12 +175,11 @@
     let lastFetchFailed = false;
 
     const feedContainer = document.getElementById('feed-container');
+    const newsFeed = document.getElementById('news-feed');
+    const topicGrid = document.getElementById('topic-grid');
+    const categoryBar = document.getElementById('category-bar');
     const infiniteLoader = document.getElementById('infinite-loader');
-    const loadingText = document.getElementById('loading-text');
-
-    function setLoadingText(message) {
-      if (loadingText) loadingText.textContent = message;
-    }
+    const newsCounter = document.getElementById('news-counter');
 
     function safeText(value, fallback = '') {
       if (value === null || value === undefined || value === 'None') return fallback;
@@ -111,17 +193,6 @@
       return text;
     }
 
-    function formatDate(dateValue) {
-      if (!dateValue) return 'Recente';
-      const date = new Date(dateValue);
-      if (Number.isNaN(date.getTime())) return 'Recente';
-      return date.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-    }
-
     function escapeHtml(value) {
       return String(value)
         .replace(/&/g, '&amp;')
@@ -131,21 +202,59 @@
         .replace(/'/g, '&#039;');
     }
 
-    function getCategory(news) {
-      const categories = Array.isArray(news.category) ? news.category : [];
-      return categories.length ? safeText(categories[0], 'Notícia') : 'Notícia';
+    function getCategorySlug(categoryValue) {
+      if (!categoryValue) return 'curiosidades';
+      const value = String(categoryValue).toLowerCase();
+      if (value.includes('hist')) return 'historia';
+      if (value.includes('ciên') || value.includes('cien') || value.includes('science')) return 'ciencia';
+      if (value.includes('tec') || value.includes('tech') || value.includes('digital')) return 'tecnologia';
+      if (value.includes('saud')) return 'saude';
+      if (value.includes('edu')) return 'educacao';
+      if (value.includes('amb') || value.includes('clima') || value.includes('eco')) return 'meio-ambiente';
+      if (value.includes('ia') || value.includes('ai')) return 'ia';
+      if (value.includes('inova')) return 'inovacao';
+      return 'curiosidades';
     }
 
-    async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+    function normalizeNewsItem(news) {
+      if (!news || !news.title) return null;
+
+      const category = Array.isArray(news.category) && news.category.length ? news.category[0] : safeText(news.category, 'Curiosidades');
+      const normalized = {
+        ...news,
+        title: safeText(news.title, 'Notícia relevante'),
+        description: safeText(news.description, 'Sem descrição disponível.'),
+        author: safeText(news.author, 'Agência de Notícias'),
+        url: safeUrl(news.url, '#'),
+        image: safeUrl(news.image, DEFAULT_BG),
+        categoryLabel: category,
+        categorySlug: getCategorySlug(category)
+      };
+
+      return normalized;
+    }
+
+    function renderCategoryChips() {
+      categoryBar.innerHTML = '';
+      categories.forEach((item) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `category-chip inline-flex items-center gap-2 px-4 py-2 rounded-full border text-sm font-semibold ${activeCategory === item.id ? 'active' : 'border-white/10 bg-white/5 text-gray-200'}`;
+        btn.innerHTML = `<i class="${item.icon}"></i><span>${item.label}</span>`;
+        btn.addEventListener('click', () => {
+          activeCategory = item.id;
+          renderCategoryChips();
+          renderNewsList();
+        });
+        categoryBar.appendChild(btn);
+      });
+    }
+
+    async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
       try {
-        const response = await fetch(url, {
-          ...options,
-          signal: controller.signal
-        });
-        return response;
+        return await fetch(url, { ...options, signal: controller.signal });
       } finally {
         clearTimeout(timeout);
       }
@@ -154,7 +263,6 @@
     async function parseJsonResponse(response) {
       const text = await response.text();
       if (!text) return null;
-
       try {
         return JSON.parse(text);
       } catch (error) {
@@ -168,17 +276,14 @@
       const attempts = [
         {
           name: 'direct-api',
-          url: directUrl,
           builder: () => fetchWithTimeout(directUrl, { headers: { Accept: 'application/json' } }, 12000)
         },
         {
           name: 'allorigins-raw',
-          url: `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`,
           builder: () => fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`, { headers: { Accept: 'application/json' } }, 15000)
         },
         {
           name: 'allorigins-get',
-          url: `https://api.allorigins.win/get?url=${encodeURIComponent(directUrl)}`,
           builder: () => fetchWithTimeout(`https://api.allorigins.win/get?url=${encodeURIComponent(directUrl)}`, { headers: { Accept: 'application/json' } }, 15000)
         }
       ];
@@ -186,164 +291,154 @@
       for (const attempt of attempts) {
         try {
           const response = await attempt.builder();
-          if (!response || !response.ok) {
-            console.warn(`Tentativa falhou (${attempt.name}):`, response ? response.status : 'sem resposta');
-            continue;
-          }
+          if (!response || !response.ok) continue;
 
           let data = await parseJsonResponse(response);
-
           if (attempt.name === 'allorigins-get' && data && data.contents) {
-            data = JSON.parse(data.contents);
+            try {
+              data = JSON.parse(data.contents);
+            } catch (error) {
+              data = null;
+            }
           }
 
-          if (data && data.status === 'ok' && Array.isArray(data.news)) {
-            return data.news;
-          }
-
-          if (data && Array.isArray(data.news)) {
-            return data.news;
-          }
-
-          if (data && data.error) {
-            console.warn(`API respondeu erro em ${attempt.name}:`, data.error);
-            continue;
-          }
+          if (data && data.status === 'ok' && Array.isArray(data.news)) return data.news;
+          if (data && Array.isArray(data.news)) return data.news;
         } catch (error) {
-          console.warn(`Erro ao tentar ${attempt.name}:`, error.message || error);
+          console.warn(`Erro em tentativa de fetch: ${error.message || error}`);
         }
       }
 
       return [];
     }
 
-    function showEmptyState(message = 'Nenhuma notícia encontrada no momento.') {
-      feedContainer.innerHTML = `
-        <div class="empty-state">
-          <i class="fa-solid fa-newspaper text-3xl text-gray-500" aria-hidden="true"></i>
-          <p class="text-gray-400 text-base font-semibold max-w-md">${escapeHtml(message)}</p>
-          <button id="retry-button" class="px-5 py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm shadow-lg active:scale-95">
-            Tentar novamente
-          </button>
-        </div>
-      `;
-
-      const retryButton = document.getElementById('retry-button');
-      if (retryButton) {
-        retryButton.addEventListener('click', () => {
-          currentPage = 1;
-          hasMoreNews = true;
-          lastFetchFailed = false;
-          feedContainer.innerHTML = `
-            <div id="loading-screen" class="h-screen w-full flex flex-col justify-center items-center">
-              <i class="fa-solid fa-circle-notch fa-spin text-4xl text-indigo-500 mb-4" aria-hidden="true"></i>
-              <p id="loading-text" class="text-gray-400 font-semibold text-sm">Tentando novamente...</p>
-            </div>
-          `;
-          loadNewsPage(1);
-        });
-      }
+    function formatDate(dateValue) {
+      if (!dateValue) return 'Recente';
+      const date = new Date(dateValue);
+      if (Number.isNaN(date.getTime())) return 'Recente';
+      return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
     }
 
-    function createNewsCard(news) {
-      const card = document.createElement('article');
-      card.className = 'snap-card w-full flex flex-col justify-end p-4 sm:p-6 pb-8 overflow-hidden bg-black';
-      card.setAttribute('tabindex', '0');
+    function renderTopicCards(topics) {
+      topicGrid.innerHTML = '';
 
-      const imageUrl = safeUrl(news.image, DEFAULT_BG);
-      const title = safeText(news.title, 'Notícia importante');
-      const description = safeText(news.description, 'Sem descrição disponível.');
-      const author = safeText(news.author, 'Agência de Notícias');
-      const published = formatDate(news.published);
-      const category = getCategory(news);
-      const link = safeUrl(news.url, '#');
+      topics.slice(0, 15).forEach((item) => {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'topic-card rounded-2xl p-4 text-left';
+        card.innerHTML = `
+          <div class="flex items-center justify-between mb-3">
+            <span class="inline-flex items-center gap-2 rounded-full bg-indigo-500/15 text-indigo-200 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em]">
+              <i class="fa-solid fa-bolt"></i>
+              ${escapeHtml(item.category || 'Curiosidades')}
+            </span>
+          </div>
+          <h4 class="text-sm font-black text-white leading-snug mb-2">${escapeHtml(item.title)}</h4>
+          <p class="text-xs text-gray-300 leading-relaxed">${escapeHtml(item.summary || 'Tema em destaque para o feed.')}</p>
+        `;
 
-      const imageWrap = document.createElement('div');
-      imageWrap.className = 'absolute inset-0 z-0';
-      imageWrap.innerHTML = `
-        <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" class="w-full h-full object-cover opacity-80 scale-105" onerror="this.src='${DEFAULT_BG}'">
-        <div class="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent"></div>
-      `;
+        card.addEventListener('click', () => {
+          const slug = getCategorySlug(item.category || 'Curiosidades');
+          activeCategory = slug;
+          renderCategoryChips();
+          renderNewsList();
+        });
 
-      const contentWrap = document.createElement('div');
-      contentWrap.className = 'relative z-10 flex items-end justify-between gap-4 max-w-lg mx-auto w-full h-full pb-4';
+        topicGrid.appendChild(card);
+      });
+    }
 
-      const leftPanel = document.createElement('div');
-      leftPanel.className = 'flex-1 pb-4';
+    async function generateTopics() {
+      const endpoint = window.GEMINI_ENDPOINT || '';
 
-      const badge = document.createElement('span');
-      badge.className = 'inline-block px-3 py-1 mb-3 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-600 text-white';
-      badge.textContent = category;
+      if (endpoint) {
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              prompt: 'Gere 15 tópicos de notícias em português para um feed jovem. Responda em JSON com o formato [{"title":"...","category":"curiosidades|historia|ciencia|tecnologia|saude|educacao|meio-ambiente|inovacao|ia", "summary":"..."}]'
+            })
+          });
 
-      const h2 = document.createElement('h2');
-      h2.className = 'text-xl sm:text-2xl font-black text-white leading-snug mb-2 drop-shadow-lg line-clamp-4';
-      h2.textContent = title;
+          if (response.ok) {
+            const result = await response.json();
+            const list = Array.isArray(result) ? result : Array.isArray(result.topics) ? result.topics : null;
+            if (list && list.length >= 5) return list;
+          }
+        } catch (error) {
+          console.warn('Gemini endpoint indisponível, usando fallback:', error);
+        }
+      }
 
-      const p = document.createElement('p');
-      p.className = 'text-sm text-gray-300 line-clamp-3 mb-4 drop-shadow-md';
-      p.textContent = description;
+      return defaultTopics;
+    }
 
-      const meta = document.createElement('div');
-      meta.className = 'flex items-center gap-2 text-xs font-bold text-gray-400 mb-4';
-      meta.innerHTML = `
-        <span>${escapeHtml(author)}</span>
-        <span>•</span>
-        <span>${escapeHtml(published)}</span>
-      `;
+    function renderNewsList() {
+      const filtered = allNews.filter((item) => {
+        if (!item) return false;
+        if (activeCategory === 'all') return true;
+        return item.categorySlug === activeCategory || item.categoryLabel.toLowerCase().includes(activeCategory.replace('-', ' '));
+      });
 
-      const articleLink = document.createElement('a');
-      articleLink.href = link;
-      articleLink.target = '_blank';
-      articleLink.rel = 'noopener noreferrer';
-      articleLink.className = 'inline-flex items-center gap-2 px-5 py-3 bg-white text-black rounded-xl font-bold text-sm transition active:scale-95 shadow-lg';
-      articleLink.innerHTML = 'Ler Matéria Completa <i class="fa-solid fa-arrow-up-right-from-square text-[10px]" aria-hidden="true"></i>';
+      newsCounter.textContent = `${filtered.length} itens`;
+      newsFeed.innerHTML = '';
 
-      leftPanel.appendChild(badge);
-      leftPanel.appendChild(h2);
-      leftPanel.appendChild(p);
-      leftPanel.appendChild(meta);
-      leftPanel.appendChild(articleLink);
+      if (filtered.length === 0) {
+        newsFeed.innerHTML = `
+          <div class="empty-state rounded-3xl border border-white/10 bg-white/5">
+            <i class="fa-solid fa-newspaper text-3xl text-gray-500" aria-hidden="true"></i>
+            <p class="text-gray-400 font-semibold">Nenhuma notícia foi encontrada para esta categoria.</p>
+          </div>
+        `;
+        return;
+      }
 
-      const actionPanel = document.createElement('div');
-      actionPanel.className = 'flex flex-col items-center gap-5 pb-4';
+      filtered.forEach((news, index) => {
+        const card = document.createElement('article');
+        card.className = 'rounded-[28px] overflow-hidden border border-white/10 bg-white/5 shadow-2xl';
+        card.innerHTML = `
+          <div class="relative h-72 overflow-hidden">
+            <img src="${escapeHtml(news.image)}" alt="${escapeHtml(news.title)}" class="w-full h-full object-cover" onerror="this.src='${DEFAULT_BG}'">
+            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+            <div class="absolute left-4 top-4">
+              <span class="inline-flex items-center gap-2 rounded-full bg-indigo-600/90 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-white">
+                ${escapeHtml(news.categoryLabel || 'Notícia')}
+              </span>
+            </div>
+          </div>
+          <div class="p-5">
+            <div class="flex items-center justify-between gap-3 mb-3 text-xs text-gray-400">
+              <span>${escapeHtml(news.author)}</span>
+              <span>${escapeHtml(formatDate(news.published))}</span>
+            </div>
+            <h4 class="text-xl font-black text-white leading-snug mb-3">${escapeHtml(news.title)}</h4>
+            <p class="text-sm leading-relaxed text-gray-300 mb-5">${escapeHtml(news.description)}</p>
+            <div class="flex items-center justify-between gap-3">
+              <a href="${news.url}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-black font-bold text-sm">
+                Ler matéria <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+              </a>
+              <button type="button" class="glass-pill rounded-full w-11 h-11 flex items-center justify-center text-white" aria-label="Curtir notícia" data-like="${index}">
+                <i class="fa-solid fa-heart text-base"></i>
+              </button>
+            </div>
+          </div>
+        `;
 
-      const likeButton = document.createElement('button');
-      likeButton.type = 'button';
-      likeButton.className = 'flex flex-col items-center group';
-      likeButton.setAttribute('aria-label', 'Curtir notícia');
-      likeButton.addEventListener('click', () => toggleLike(likeButton));
+        const likeButton = card.querySelector('[data-like]');
+        likeButton.addEventListener('click', () => {
+          const icon = likeButton.querySelector('i');
+          const active = icon.classList.contains('text-red-500');
+          icon.classList.toggle('text-red-500', !active);
+          icon.classList.toggle('text-white', active);
+        });
 
-      const likeWrap = document.createElement('div');
-      likeWrap.className = 'w-12 h-12 glass-pill rounded-full flex items-center justify-center text-white text-xl transition active:scale-95 shadow-lg';
-      const likeIcon = document.createElement('i');
-      likeIcon.className = 'fa-solid fa-heart';
-      likeIcon.setAttribute('aria-hidden', 'true');
-      likeWrap.appendChild(likeIcon);
-      likeButton.appendChild(likeWrap);
-
-      const shareButton = document.createElement('button');
-      shareButton.type = 'button';
-      shareButton.className = 'flex flex-col items-center';
-      shareButton.setAttribute('aria-label', 'Compartilhar notícia');
-      shareButton.addEventListener('click', () => shareLink(link));
-
-      const shareWrap = document.createElement('div');
-      shareWrap.className = 'w-12 h-12 glass-pill rounded-full flex items-center justify-center text-white text-xl transition active:scale-95 shadow-lg';
-      const shareIcon = document.createElement('i');
-      shareIcon.className = 'fa-solid fa-share';
-      shareIcon.setAttribute('aria-hidden', 'true');
-      shareWrap.appendChild(shareIcon);
-      shareButton.appendChild(shareWrap);
-
-      actionPanel.appendChild(likeButton);
-      actionPanel.appendChild(shareButton);
-
-      contentWrap.appendChild(leftPanel);
-      contentWrap.appendChild(actionPanel);
-      card.appendChild(imageWrap);
-      card.appendChild(contentWrap);
-
-      return card;
+        newsFeed.appendChild(card);
+      });
     }
 
     async function loadNewsPage(page) {
@@ -355,45 +450,27 @@
         feedContainer.appendChild(infiniteLoader);
       }
 
-      setLoadingText(page === 1 ? 'A procurar as últimas notícias...' : 'Carregando mais notícias...');
-
       const newsList = await fetchCurrentsAPI(page);
-
-      const loadingScreen = document.getElementById('loading-screen');
-      if (loadingScreen) {
-        loadingScreen.remove();
-      }
 
       if (newsList.length === 0) {
         hasMoreNews = false;
-        lastFetchFailed = true;
-
-        if (page === 1) {
-          showEmptyState('Não foi possível carregar as notícias no momento. A API pode estar lenta ou bloqueada.');
-        } else {
-          showEmptyState('Não há mais notícias disponíveis no momento.');
-        }
-
         isFetching = false;
         infiniteLoader.classList.add('hidden');
+        if (page === 1) {
+          allNews = [];
+          renderNewsList();
+        }
         return;
       }
 
-      lastFetchFailed = false;
+      const normalized = newsList
+        .map(normalizeNewsItem)
+        .filter(Boolean);
 
-      newsList.forEach((news, index) => {
-        if (!news || !news.title) return;
-
-        const card = createNewsCard(news);
-        if (index === newsList.length - 1) {
-          card.classList.add('last-card-observer');
-        }
-
-        feedContainer.appendChild(card);
-      });
-
-      infiniteLoader.classList.add('hidden');
+      allNews = page === 1 ? normalized : [...allNews, ...normalized];
+      renderNewsList();
       isFetching = false;
+      infiniteLoader.classList.add('hidden');
       observeLastCard();
     }
 
@@ -401,14 +478,12 @@
       const options = {
         root: feedContainer,
         rootMargin: '0px',
-        threshold: 0.5
+        threshold: 0.6
       };
 
       observer = new IntersectionObserver((entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting && !isFetching && hasMoreNews && !lastFetchFailed) {
-            entry.target.classList.remove('last-card-observer');
-            observer.unobserve(entry.target);
+          if (entry.isIntersecting && !isFetching && hasMoreNews) {
             currentPage += 1;
             loadNewsPage(currentPage);
           }
@@ -417,60 +492,28 @@
     }
 
     function observeLastCard() {
-      const lastCard = document.querySelector('.last-card-observer');
+      const lastCard = document.querySelector('#news-feed article:last-child');
       if (lastCard && observer) {
         observer.observe(lastCard);
       }
     }
 
-    function toggleLike(button) {
-      const icon = button.querySelector('i');
-      if (!icon) return;
+    async function init() {
+      renderCategoryChips();
 
-      const isActive = icon.classList.contains('text-red-500');
-      icon.classList.toggle('text-red-500', !isActive);
-      icon.classList.toggle('text-white', isActive);
-    }
+      const topics = await generateTopics();
+      renderTopicCards(topics);
 
-    async function shareLink(url) {
-      try {
-        const safe = safeUrl(url, '');
-        if (!safe || safe === '#') return;
+      document.getElementById('refresh-topics').addEventListener('click', async () => {
+        const refreshed = await generateTopics();
+        renderTopicCards(refreshed);
+      });
 
-        if (navigator.share) {
-          await navigator.share({
-            title: 'Notícia GlobalPulse',
-            text: 'Confira esta matéria',
-            url: safe
-          });
-          return;
-        }
-
-        if (navigator.clipboard && window.isSecureContext) {
-          await navigator.clipboard.writeText(safe);
-          alert('Link copiado para a área de transferência!');
-          return;
-        }
-
-        const tempInput = document.createElement('textarea');
-        tempInput.value = safe;
-        document.body.appendChild(tempInput);
-        tempInput.select();
-        document.execCommand('copy');
-        document.body.removeChild(tempInput);
-        alert('Link copiado para a área de transferência!');
-      } catch (error) {
-        console.warn('Erro ao compartilhar link:', error);
-        if (url && url !== '#') {
-          window.open(url, '_blank', 'noopener,noreferrer');
-        }
-      }
-    }
-
-    window.addEventListener('DOMContentLoaded', () => {
       setupInfiniteScroll();
-      loadNewsPage(currentPage);
-    });
+      loadNewsPage(1);
+    }
+
+    init();
   </script>
 </body>
 </html>

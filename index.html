@@ -4,13 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>GlobalPulse Shorts - Currents API</title>
-  
+
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
+
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
-    
+
     * {
       font-family: 'Plus Jakarta Sans', sans-serif;
       box-sizing: border-box;
@@ -24,7 +24,6 @@
       overflow: hidden;
     }
 
-    /* Container de Rolagem estilo TikTok */
     .snap-container {
       scroll-snap-type: y mandatory;
       overflow-y: scroll;
@@ -51,182 +50,301 @@
 </head>
 <body class="select-none">
 
-  <!-- Topo -->
   <header class="fixed top-0 left-0 right-0 z-40 px-4 py-4 flex justify-center bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
     <h1 class="text-white font-black text-lg tracking-wide drop-shadow-md">GlobalPulse</h1>
   </header>
 
-  <!-- Feed -->
-  <main id="feed-container" class="snap-container hide-scrollbar">
-    <!-- Tela de Carregamento Inicial -->
+  <main id="feed-container" class="snap-container hide-scrollbar" aria-live="polite">
     <div id="loading-screen" class="h-screen w-full flex flex-col justify-center items-center">
-      <i class="fa-solid fa-circle-notch fa-spin text-4xl text-indigo-500 mb-4"></i>
+      <i class="fa-solid fa-circle-notch fa-spin text-4xl text-indigo-500 mb-4" aria-hidden="true"></i>
       <p class="text-gray-400 font-semibold text-sm">A procurar as últimas notícias...</p>
     </div>
   </main>
 
-  <!-- Loader de Rolagem Infinita (Fica no fundo) -->
-  <div id="infinite-loader" class="hidden h-32 w-full flex justify-center items-center bg-black">
+  <div id="infinite-loader" class="hidden h-32 w-full flex justify-center items-center bg-black" aria-hidden="true">
     <i class="fa-solid fa-spinner fa-spin text-2xl text-indigo-500"></i>
   </div>
 
   <script>
     const CURRENTS_API_KEY = 'sI4_MxTyZXaZZCfOE2yCfVUVssmI6BiCttH4b1wEQc7Mk_86';
     const DEFAULT_BG = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&q=80';
-    
+
     let currentPage = 1;
     let isFetching = false;
     let hasMoreNews = true;
+    let observer;
+
     const feedContainer = document.getElementById('feed-container');
+    const infiniteLoader = document.getElementById('infinite-loader');
 
-    window.addEventListener('DOMContentLoaded', () => {
-      loadNewsPage(currentPage);
-      setupInfiniteScroll();
-    });
-
-    // Função para buscar notícias na Currents API com Proxy para evitar erro de CORS
-    async function fetchCurrentsAPI(page) {
-      try {
-        const apiUrl = `https://api.currentsapi.services/v1/latest-news?language=pt&page=${page}&apiKey=${CURRENTS_API_KEY}`;
-        // O proxy AllOrigins garante que o navegador não bloqueia o pedido
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`;
-        
-        const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error("Erro de rede");
-        
-        const data = await response.json();
-        
-        if (data.status === 'ok' && data.news) {
-          return data.news;
-        }
-        return [];
-      } catch (error) {
-        console.error("Falha ao buscar notícias:", error);
-        return [];
+    function safeText(value, fallback = '') {
+      if (value === null || value === undefined || value === 'None') {
+        return fallback;
       }
+
+      const text = String(value).trim();
+      return text || fallback;
     }
 
-    // Função principal que carrega as notícias e constrói o HTML
+    function safeUrl(value, fallback = '#') {
+      const text = safeText(value, fallback);
+      if (!/^https?:\/\//i.test(text)) {
+        return fallback;
+      }
+      return text;
+    }
+
+    function formatDate(dateValue) {
+      if (!dateValue) return 'Recente';
+
+      const date = new Date(dateValue);
+      if (Number.isNaN(date.getTime())) return 'Recente';
+
+      return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function getCategory(news) {
+      const categories = Array.isArray(news.category) ? news.category : [];
+      return categories.length ? safeText(categories[0], 'Notícia') : 'Notícia';
+    }
+
+    async function fetchCurrentsAPI(page) {
+      const apiUrl = `https://api.currentsapi.services/v1/latest-news?language=pt&page=${page}&apiKey=${CURRENTS_API_KEY}`;
+      const attempts = [
+        {
+          name: 'allorigins-get',
+          url: `https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}`,
+          parse: async (response) => {
+            const raw = await response.json();
+            if (!raw || !raw.contents) return null;
+            return JSON.parse(raw.contents);
+          }
+        },
+        {
+          name: 'allorigins-raw',
+          url: `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`,
+          parse: async (response) => response.json()
+        },
+        {
+          name: 'direct-api',
+          url: apiUrl,
+          parse: async (response) => response.json()
+        }
+      ];
+
+      for (const attempt of attempts) {
+        try {
+          const response = await fetch(attempt.url, {
+            headers: { 'Accept': 'application/json' }
+          });
+
+          if (!response.ok) {
+            console.warn(`Falha em ${attempt.name}: ${response.status}`);
+            continue;
+          }
+
+          const data = await attempt.parse(response);
+
+          if (data && data.status === 'ok' && Array.isArray(data.news)) {
+            return data.news;
+          }
+
+          if (data && Array.isArray(data.news)) {
+            return data.news;
+          }
+
+          if (data && data.error) {
+            throw new Error(data.error.message || 'API retornou erro');
+          }
+        } catch (error) {
+          console.warn(`Erro em ${attempt.name}:`, error.message || error);
+        }
+      }
+
+      return [];
+    }
+
+    function showEmptyState(message = 'Nenhuma notícia encontrada no momento.') {
+      feedContainer.innerHTML = `
+        <div class="h-screen flex flex-col items-center justify-center px-6 text-center">
+          <i class="fa-solid fa-newspaper text-3xl text-gray-500 mb-4" aria-hidden="true"></i>
+          <p class="text-gray-400 text-base font-semibold">${escapeHtml(message)}</p>
+        </div>
+      `;
+    }
+
+    function createNewsCard(news) {
+      const card = document.createElement('article');
+      card.className = 'snap-card w-full flex flex-col justify-end p-4 sm:p-6 pb-8 overflow-hidden bg-black';
+      card.setAttribute('tabindex', '0');
+
+      const imageUrl = safeUrl(news.image, DEFAULT_BG);
+      const title = safeText(news.title, 'Notícia importante');
+      const description = safeText(news.description, 'Sem descrição disponível.');
+      const author = safeText(news.author, 'Agência de Notícias');
+      const published = formatDate(news.published);
+      const category = getCategory(news);
+      const link = safeUrl(news.url, '#');
+
+      const imageWrap = document.createElement('div');
+      imageWrap.className = 'absolute inset-0 z-0';
+      imageWrap.innerHTML = `
+        <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" class="w-full h-full object-cover opacity-80 scale-105" onerror="this.src='${DEFAULT_BG}'">
+        <div class="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent"></div>
+      `;
+
+      const contentWrap = document.createElement('div');
+      contentWrap.className = 'relative z-10 flex items-end justify-between gap-4 max-w-lg mx-auto w-full h-full pb-4';
+
+      const leftPanel = document.createElement('div');
+      leftPanel.className = 'flex-1 pb-4';
+
+      const badge = document.createElement('span');
+      badge.className = 'inline-block px-3 py-1 mb-3 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-600 text-white';
+      badge.textContent = category;
+
+      const h2 = document.createElement('h2');
+      h2.className = 'text-xl sm:text-2xl font-black text-white leading-snug mb-2 drop-shadow-lg line-clamp-4';
+      h2.textContent = title;
+
+      const p = document.createElement('p');
+      p.className = 'text-sm text-gray-300 line-clamp-3 mb-4 drop-shadow-md';
+      p.textContent = description;
+
+      const meta = document.createElement('div');
+      meta.className = 'flex items-center gap-2 text-xs font-bold text-gray-400 mb-4';
+      meta.innerHTML = `
+        <span>${escapeHtml(author)}</span>
+        <span>•</span>
+        <span>${escapeHtml(published)}</span>
+      `;
+
+      const articleLink = document.createElement('a');
+      articleLink.href = link;
+      articleLink.target = '_blank';
+      articleLink.rel = 'noopener noreferrer';
+      articleLink.className = 'inline-flex items-center gap-2 px-5 py-3 bg-white text-black rounded-xl font-bold text-sm transition active:scale-95 shadow-lg';
+      articleLink.innerHTML = 'Ler Matéria Completa <i class="fa-solid fa-arrow-up-right-from-square text-[10px]" aria-hidden="true"></i>';
+
+      leftPanel.appendChild(badge);
+      leftPanel.appendChild(h2);
+      leftPanel.appendChild(p);
+      leftPanel.appendChild(meta);
+      leftPanel.appendChild(articleLink);
+
+      const actionPanel = document.createElement('div');
+      actionPanel.className = 'flex flex-col items-center gap-5 pb-4';
+
+      const likeButton = document.createElement('button');
+      likeButton.type = 'button';
+      likeButton.className = 'flex flex-col items-center group';
+      likeButton.setAttribute('aria-label', 'Curtir notícia');
+      likeButton.addEventListener('click', () => toggleLike(likeButton));
+
+      const likeWrap = document.createElement('div');
+      likeWrap.className = 'w-12 h-12 glass-pill rounded-full flex items-center justify-center text-white text-xl transition active:scale-95 shadow-lg';
+      const likeIcon = document.createElement('i');
+      likeIcon.className = 'fa-solid fa-heart';
+      likeIcon.setAttribute('aria-hidden', 'true');
+      likeWrap.appendChild(likeIcon);
+      likeButton.appendChild(likeWrap);
+
+      const shareButton = document.createElement('button');
+      shareButton.type = 'button';
+      shareButton.className = 'flex flex-col items-center';
+      shareButton.setAttribute('aria-label', 'Compartilhar notícia');
+      shareButton.addEventListener('click', () => shareLink(link));
+
+      const shareWrap = document.createElement('div');
+      shareWrap.className = 'w-12 h-12 glass-pill rounded-full flex items-center justify-center text-white text-xl transition active:scale-95 shadow-lg';
+      const shareIcon = document.createElement('i');
+      shareIcon.className = 'fa-solid fa-share';
+      shareIcon.setAttribute('aria-hidden', 'true');
+      shareWrap.appendChild(shareIcon);
+      shareButton.appendChild(shareWrap);
+
+      actionPanel.appendChild(likeButton);
+      actionPanel.appendChild(shareButton);
+
+      contentWrap.appendChild(leftPanel);
+      contentWrap.appendChild(actionPanel);
+      card.appendChild(imageWrap);
+      card.appendChild(contentWrap);
+
+      return card;
+    }
+
     async function loadNewsPage(page) {
       if (isFetching || !hasMoreNews) return;
       isFetching = true;
 
-      // Mostra loader se não for a primeira página
       if (page > 1) {
-        document.getElementById('infinite-loader').classList.remove('hidden');
-        feedContainer.appendChild(document.getElementById('infinite-loader'));
+        infiniteLoader.classList.remove('hidden');
+        feedContainer.appendChild(infiniteLoader);
       }
 
       const newsList = await fetchCurrentsAPI(page);
 
-      // Remove tela de loading inicial
       const loadingScreen = document.getElementById('loading-screen');
-      if (loadingScreen) loadingScreen.remove();
+      if (loadingScreen) {
+        loadingScreen.remove();
+      }
 
       if (newsList.length === 0) {
         hasMoreNews = false;
+
         if (page === 1) {
-          feedContainer.innerHTML = `<div class="h-screen flex items-center justify-center text-gray-500">Nenhuma notícia encontrada. Verifique a chave da API.</div>`;
+          showEmptyState('Nenhuma notícia encontrada. Verifique a API ou a conexão com a internet.');
         }
+
         isFetching = false;
+        infiniteLoader.classList.add('hidden');
         return;
       }
 
-      // Constrói cada card de notícia
       newsList.forEach((news, index) => {
-        // Ignora notícias sem título
-        if (!news.title) return;
+        if (!news || !news.title) return;
 
-        const imageUrl = (news.image && news.image !== 'None') ? news.image : DEFAULT_BG;
-        const category = (news.category && news.category.length > 0) ? news.category[0] : 'Notícia';
-        
-        const card = document.createElement('article');
-        card.className = 'snap-card w-full flex flex-col justify-end p-4 sm:p-6 pb-8 overflow-hidden bg-black';
-        
-        // Atribui classe especial ao último item para o Infinite Scroll observar
+        const card = createNewsCard(news);
         if (index === newsList.length - 1) {
           card.classList.add('last-card-observer');
         }
 
-        card.innerHTML = `
-          <!-- Imagem de Fundo -->
-          <div class="absolute inset-0 z-0">
-            <img src="${imageUrl}" onerror="this.src='${DEFAULT_BG}'" class="w-full h-full object-cover opacity-80 scale-105">
-            <div class="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent"></div>
-          </div>
-
-          <!-- Conteúdo -->
-          <div class="relative z-10 flex items-end justify-between gap-4 max-w-lg mx-auto w-full h-full pb-4">
-            
-            <!-- Textos (Esquerda) -->
-            <div class="flex-1 pb-4">
-              <span class="inline-block px-3 py-1 mb-3 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-600 text-white">
-                ${category}
-              </span>
-              <h2 class="text-xl sm:text-2xl font-black text-white leading-snug mb-2 drop-shadow-lg line-clamp-4">
-                ${news.title}
-              </h2>
-              <p class="text-sm text-gray-300 line-clamp-3 mb-4 drop-shadow-md">
-                ${news.description || 'Sem descrição disponível.'}
-              </p>
-              
-              <div class="flex items-center gap-2 text-xs font-bold text-gray-400 mb-4">
-                <span>${news.author || 'Agência de Notícias'}</span>
-                <span>•</span>
-                <span>${news.published ? new Date(news.published).toLocaleDateString('pt-BR') : 'Recente'}</span>
-              </div>
-
-              <a href="${news.url}" target="_blank" class="inline-flex items-center gap-2 px-5 py-3 bg-white text-black rounded-xl font-bold text-sm transition active:scale-95 shadow-lg">
-                Ler Matéria Completa <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-              </a>
-            </div>
-
-            <!-- Botões de Ação (Direita) -->
-            <div class="flex flex-col items-center gap-5 pb-4">
-              <button onclick="toggleLike(this)" class="flex flex-col items-center group">
-                <div class="w-12 h-12 glass-pill rounded-full flex items-center justify-center text-white text-xl transition active:scale-95 shadow-lg">
-                  <i class="fa-solid fa-heart"></i>
-                </div>
-              </button>
-              
-              <button onclick="shareLink('${news.url}')" class="flex flex-col items-center">
-                <div class="w-12 h-12 glass-pill rounded-full flex items-center justify-center text-white text-xl transition active:scale-95 shadow-lg">
-                  <i class="fa-solid fa-share"></i>
-                </div>
-              </button>
-            </div>
-          </div>
-        `;
-        
         feedContainer.appendChild(card);
       });
 
-      document.getElementById('infinite-loader').classList.add('hidden');
+      infiniteLoader.classList.add('hidden');
       isFetching = false;
-      
-      // Reconecta o observador ao novo último card
       observeLastCard();
     }
 
-    // --- LÓGICA DE ROLAGEM INFINITA (Intersection Observer) ---
-    let observer;
-    
     function setupInfiniteScroll() {
       const options = {
         root: feedContainer,
         rootMargin: '0px',
-        threshold: 0.5 // Dispara quando o último card estiver 50% visível
+        threshold: 0.5
       };
 
       observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
+        entries.forEach((entry) => {
           if (entry.isIntersecting && !isFetching && hasMoreNews) {
-            // Remove a marcação do card atual
             entry.target.classList.remove('last-card-observer');
             observer.unobserve(entry.target);
-            
-            // Carrega próxima página
-            currentPage++;
+
+            currentPage += 1;
             loadNewsPage(currentPage);
           }
         });
@@ -240,26 +358,54 @@
       }
     }
 
-    // Funções de Interação Simples
-    function toggleLike(btn) {
-      const icon = btn.querySelector('i');
-      if (icon.classList.contains('text-red-500')) {
-        icon.classList.remove('text-red-500');
-        icon.classList.add('text-white');
-      } else {
-        icon.classList.remove('text-white');
-        icon.classList.add('text-red-500');
+    function toggleLike(button) {
+      const icon = button.querySelector('i');
+      if (!icon) return;
+
+      const isActive = icon.classList.contains('text-red-500');
+      icon.classList.toggle('text-red-500', !isActive);
+      icon.classList.toggle('text-white', isActive);
+    }
+
+    async function shareLink(url) {
+      try {
+        const safe = safeUrl(url, '');
+        if (!safe || safe === '#') {
+          return;
+        }
+
+        if (navigator.share) {
+          await navigator.share({
+            title: 'Notícia GlobalPulse',
+            text: 'Confira esta matéria',
+            url: safe
+          });
+          return;
+        }
+
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(safe);
+          alert('Link copiado para a área de transferência!');
+          return;
+        }
+
+        const tempInput = document.createElement('textarea');
+        tempInput.value = safe;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempInput);
+        alert('Link copiado para a área de transferência!');
+      } catch (error) {
+        console.warn('Erro ao compartilhar link:', error);
+        window.open(url, '_blank', 'noopener,noreferrer');
       }
     }
 
-    function shareLink(url) {
-      if (navigator.share) {
-        navigator.share({ title: 'Notícia GlobalPulse', url: url });
-      } else {
-        navigator.clipboard.writeText(url);
-        alert('Link copiado para a área de transferência!');
-      }
-    }
+    window.addEventListener('DOMContentLoaded', () => {
+      setupInfiniteScroll();
+      loadNewsPage(currentPage);
+    });
   </script>
 </body>
 </html>

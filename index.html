@@ -93,14 +93,12 @@
   <!-- TOPO: NAVEGAÇÃO & ACESSIBILIDADE -->
   <header class="fixed top-0 left-0 right-0 z-40 px-4 py-3 flex justify-between items-center bg-gradient-to-b from-black/90 via-black/40 to-transparent pointer-events-none">
     
-    <!-- ÍCONE BÚSSOLA (EXPLORAR TÓPICOS) -->
     <div class="flex items-center gap-2 pointer-events-auto">
       <button onclick="toggleTopicsModal()" class="w-9 h-9 glass-pill rounded-full flex items-center justify-center text-gray-100 active:scale-95 transition shadow-lg" title="Explorar Tópicos">
         <i class="fa-solid fa-compass text-sm text-indigo-400"></i>
       </button>
     </div>
 
-    <!-- ABAS CENTRAIS -->
     <div class="flex items-center gap-4 text-sm font-bold tracking-wide pointer-events-auto">
       <button id="tab-following" onclick="switchMainTab('following')" class="text-gray-400 hover:text-white transition relative py-1">
         Seguindo
@@ -113,7 +111,6 @@
       </button>
     </div>
 
-    <!-- PESQUISA -->
     <div class="flex items-center gap-2 pointer-events-auto">
       <button onclick="toggleSearchModal()" class="w-9 h-9 glass-pill rounded-full flex items-center justify-center text-gray-100 active:scale-95 transition shadow-lg" title="Pesquisar">
         <i class="fa-solid fa-magnifying-glass text-xs"></i>
@@ -125,7 +122,7 @@
   <main id="feed-container" class="snap-container hide-scrollbar">
     <div id="loading-state" class="h-screen w-full flex flex-col justify-center items-center p-6 text-center">
       <i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-500 mb-3"></i>
-      <h3 class="text-sm font-bold text-gray-300">A carregar feed inteligente com Gemini IA...</h3>
+      <h3 class="text-sm font-bold text-gray-300">A processar notícias com Currents & Gemini IA...</h3>
     </div>
   </main>
 
@@ -224,7 +221,7 @@
     </div>
   </div>
 
-  <!-- MODAL DE COMENTÁRIOS ESTILO TIKTOK -->
+  <!-- MODAL DE COMENTÁRIOS -->
   <div id="comments-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden flex flex-col justify-end" onclick="closeCommentsModal(event)">
     <div class="bg-gray-950 border-t border-gray-800 rounded-t-3xl p-4 sm:p-6 w-full max-w-lg mx-auto max-h-[75vh] flex flex-col" onclick="event.stopPropagation()">
       <div class="flex justify-between items-center pb-3 border-b border-gray-800">
@@ -241,7 +238,7 @@
     </div>
   </div>
 
-  <!-- MODAL DE MATÉRIA COMPLETA DEEP DIVE -->
+  <!-- MODAL DE DEEP DIVE -->
   <div id="deepdive-modal" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl hidden flex flex-col p-4 sm:p-6 overflow-y-auto">
     <div class="max-w-2xl mx-auto w-full my-auto glass-panel p-6 rounded-3xl relative border border-gray-700/50 shadow-2xl">
       <button onclick="closeDeepDive()" class="absolute top-4 right-4 w-9 h-9 rounded-full bg-gray-800/80 flex items-center justify-center text-gray-300 hover:text-white transition z-10">
@@ -271,108 +268,44 @@
     </div>
   </div>
 
-  <!-- MODAL DE PESQUISA INTELIGENTE VIA GEMINI IA -->
+  <!-- MODAL PESQUISA GEMINI -->
   <div id="search-modal" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-2xl hidden p-4 sm:p-6 flex flex-col">
     <div class="max-w-xl mx-auto w-full flex flex-col h-full">
       <div class="flex items-center gap-3 mb-3">
         <div class="flex-1 relative">
           <i class="fa-solid fa-magnifying-glass absolute left-4 top-3.5 text-gray-500 text-xs"></i>
-          <input type="text" id="search-input" onkeyup="handleSearchKeyup(event)" placeholder="Pesquisar notícias ou digite qualquer tema para a IA criar..." class="w-full bg-gray-900/90 border border-gray-800 rounded-2xl pl-10 pr-20 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+          <input type="text" id="search-input" onkeyup="handleSearchKeyup(event)" placeholder="Pesquisar notícias ou digite um tema..." class="w-full bg-gray-900/90 border border-gray-800 rounded-2xl pl-10 pr-20 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500">
           <button onclick="triggerGeminiSearch()" class="absolute right-2 top-1.5 px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-bold transition">
             <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Buscar
           </button>
         </div>
         <button onclick="toggleSearchModal()" class="text-xs text-gray-400 font-bold px-2 py-1 hover:text-white">Cancelar</button>
       </div>
-
       <div id="search-results-stats" class="text-[11px] font-semibold text-indigo-400 mb-3 px-1"></div>
-
       <div id="search-results-list" class="flex-1 overflow-y-auto space-y-3 pr-1 hide-scrollbar">
         <div class="text-center py-12 text-gray-500 text-xs">Digite qualquer termo para pesquisar ou gerar uma matéria sobre o assunto com o Gemini IA...</div>
       </div>
     </div>
   </div>
 
-  <!-- NOTIFICAÇÃO TOAST -->
+  <!-- TOAST -->
   <div id="toast-notification" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full glass-panel border border-indigo-500/40 text-xs font-bold text-white shadow-2xl transition-all duration-300 opacity-0 pointer-events-none transform translate-y-4">
     <span id="toast-msg"></span>
   </div>
 
   <script>
     const GEMINI_API_KEY = 'AIzaSyBm8sfb4JqHfwBEqc_7c0bbAmxwtVJYt04';
+    const CURRENTS_API_KEY = 'sI4_MxTyZXaZZCfOE2yCfVUVssmI6BiCttH4b1wEQc7Mk_86';
     const DEFAULT_BG = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&q=80';
 
     const PROFILES_DATABASE = {
-      'g1': {
-        id: 'g1',
-        name: 'G1 Notícias',
-        handle: '@g1_oficial',
-        avatar: 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=200&q=80',
-        bio: 'O portal de notícias atualizado 24 horas por dia com cobertura nacional e internacional.',
-        followers: '1.2M',
-        following: '42',
-        likes: '18.4M'
-      },
-      'bbc': {
-        id: 'bbc',
-        name: 'BBC News Brasil',
-        handle: '@bbc_portuguese',
-        avatar: 'https://images.unsplash.com/photo-1526470608268-f674ce90ebd4?auto=format&fit=crop&w=200&q=80',
-        bio: 'Jornalismo independente, reportagens profundas e análise dos fatos globais.',
-        followers: '950K',
-        following: '18',
-        likes: '12.1M'
-      },
-      'fatos_historicos': {
-        id: 'fatos_historicos',
-        name: 'História & Memória IA',
-        handle: '@historia_ia',
-        avatar: 'https://images.unsplash.com/photo-1461360370896-922624d12aa1?auto=format&fit=crop&w=200&q=80',
-        bio: 'Fatos históricos, eventos marcantes do passado e arquivos da humanidade gerados em tempo real.',
-        followers: '880K',
-        following: '10',
-        likes: '14.2M'
-      },
-      'ciencia_espaco': {
-        id: 'ciencia_espaco',
-        name: 'Cosmos & Ciência',
-        handle: '@cosmos_ciencia',
-        avatar: 'https://images.unsplash.com/photo-1507668077129-56e32842fceb?auto=format&fit=crop&w=200&q=80',
-        bio: 'Descobertas astronômicas, física quântica e curiosidades do universo.',
-        followers: '740K',
-        following: '15',
-        likes: '9.8M'
-      },
-      'cultura_curiosidades': {
-        id: 'cultura_curiosidades',
-        name: 'Mundo Inusitado',
-        handle: '@mundo_inusitado',
-        avatar: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=200&q=80',
-        bio: 'Curiosidades culturais, tradições raras e fatos surpreendentes ao redor do planeta.',
-        followers: '510K',
-        following: '22',
-        likes: '7.3M'
-      },
-      'tech_evolution': {
-        id: 'tech_evolution',
-        name: 'Tech & Retro Games',
-        handle: '@tech_evolution',
-        avatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=200&q=80',
-        bio: 'A evolução da tecnologia, história dos videogames e avanços da Inteligência Artificial.',
-        followers: '690K',
-        following: '30',
-        likes: '11.5M'
-      },
-      'mente_comportamento': {
-        id: 'mente_comportamento',
-        name: 'Mente & Comportamento',
-        handle: '@mente_humana',
-        avatar: 'https://images.unsplash.com/photo-1559757175-5700dde675bc?auto=format&fit=crop&w=200&q=80',
-        bio: 'Psicologia, neurociência e o funcionamento fascinante do cérebro humano.',
-        followers: '430K',
-        following: '14',
-        likes: '6.1M'
-      }
+      'g1': { id: 'g1', name: 'G1 Notícias', handle: '@g1_oficial', avatar: 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=200&q=80', bio: 'Portal de notícias.', followers: '1.2M', following: '42', likes: '18.4M' },
+      'bbc': { id: 'bbc', name: 'BBC News Brasil', handle: '@bbc_portuguese', avatar: 'https://images.unsplash.com/photo-1526470608268-f674ce90ebd4?auto=format&fit=crop&w=200&q=80', bio: 'Jornalismo independente.', followers: '950K', following: '18', likes: '12.1M' },
+      'fatos_historicos': { id: 'fatos_historicos', name: 'História & Memória IA', handle: '@historia_ia', avatar: 'https://images.unsplash.com/photo-1461360370896-922624d12aa1?auto=format&fit=crop&w=200&q=80', bio: 'Fatos históricos.', followers: '880K', following: '10', likes: '14.2M' },
+      'ciencia_espaco': { id: 'ciencia_espaco', name: 'Cosmos & Ciência', handle: '@cosmos_ciencia', avatar: 'https://images.unsplash.com/photo-1507668077129-56e32842fceb?auto=format&fit=crop&w=200&q=80', bio: 'Física e universo.', followers: '740K', following: '15', likes: '9.8M' },
+      'cultura_curiosidades': { id: 'cultura_curiosidades', name: 'Mundo Inusitado', handle: '@mundo_inusitado', avatar: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=200&q=80', bio: 'Curiosidades culturais.', followers: '510K', following: '22', likes: '7.3M' },
+      'tech_evolution': { id: 'tech_evolution', name: 'Tech & Retro Games', handle: '@tech_evolution', avatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=200&q=80', bio: 'Evolução da tecnologia.', followers: '690K', following: '30', likes: '11.5M' },
+      'mente_comportamento': { id: 'mente_comportamento', name: 'Mente & Comportamento', handle: '@mente_humana', avatar: 'https://images.unsplash.com/photo-1559757175-5700dde675bc?auto=format&fit=crop&w=200&q=80', bio: 'Psicologia e neurociência.', followers: '430K', following: '14', likes: '6.1M' }
     };
 
     let newsData = [];
@@ -389,9 +322,7 @@
     let currentActiveCommentNewsId = null;
     let fullArticleCache = {};
     let observer = null;
-
-    let touchStartY = 0;
-    let touchEndY = 0;
+    let touchStartY = 0; let touchEndY = 0;
 
     const feedContainer = document.getElementById('feed-container');
 
@@ -403,53 +334,29 @@
     });
 
     function getLocalStorageItem(key, defaultValue) {
-      try {
-        const item = localStorage.getItem(key);
-        return item ? JSON.parse(item) : defaultValue;
-      } catch (e) {
-        return defaultValue;
-      }
+      try { const item = localStorage.getItem(key); return item ? JSON.parse(item) : defaultValue; } catch (e) { return defaultValue; }
     }
-
     function setLocalStorageItem(key, value) {
-      try {
-        localStorage.setItem(key, JSON.stringify(value));
-      } catch (e) {}
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
     }
-
     function showToast(msg) {
       const toast = document.getElementById('toast-notification');
       document.getElementById('toast-msg').innerText = msg;
       toast.classList.remove('opacity-0', 'translate-y-4', 'pointer-events-none');
-      setTimeout(() => {
-        toast.classList.add('opacity-0', 'translate-y-4', 'pointer-events-none');
-      }, 2500);
+      setTimeout(() => toast.classList.add('opacity-0', 'translate-y-4', 'pointer-events-none'), 2500);
     }
-
     function escapeHtml(text) {
       if (!text) return '';
-      return text
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+      return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
-
     function cleanText(text) {
       if (!text) return '';
-      return text
-        .replace(/<[^>]*>?/gm, '')
-        .replace(/\.([A-Z0-9À-Ú])/g, '. $1')
-        .replace(/\s+/g, ' ')
-        .trim();
+      return text.replace(/<[^>]*>?/gm, '').replace(/\.([A-Z0-9À-Ú])/g, '. $1').replace(/\s+/g, ' ').trim();
     }
-
     function normalizeStr(str) {
       if (!str) return '';
       return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
     }
-
     function shuffleArray(array) {
       const arr = [...array];
       for (let i = arr.length - 1; i > 0; i--) {
@@ -458,7 +365,6 @@
       }
       return arr;
     }
-
     function autoShuffleAndRender() {
       if (newsData.length === 0) return;
       currentFilteredNews = shuffleArray([...newsData]);
@@ -468,19 +374,12 @@
 
     function setupPullToRefresh() {
       feedContainer.addEventListener('touchstart', (e) => {
-        if (feedContainer.scrollTop === 0) {
-          touchStartY = e.touches[0].clientY;
-        } else {
-          touchStartY = 0;
-        }
+        touchStartY = feedContainer.scrollTop === 0 ? e.touches[0].clientY : 0;
       }, { passive: true });
-
       feedContainer.addEventListener('touchend', (e) => {
         if (touchStartY === 0) return;
         touchEndY = e.changedTouches[0].clientY;
-        const diffY = touchEndY - touchStartY;
-        
-        if (diffY > 80 && feedContainer.scrollTop === 0) {
+        if (touchEndY - touchStartY > 80 && feedContainer.scrollTop === 0) {
           showToast('🔄 Feed re-embaralhado!');
           autoShuffleAndRender();
         }
@@ -488,9 +387,7 @@
     }
 
     function stopSpeech() {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       currentlySpeakingId = null;
       document.querySelectorAll('.speaking-active').forEach(el => el.classList.remove('speaking-active'));
     }
@@ -498,23 +395,61 @@
     function setupIntersectionObserver() {
       observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
-          if (!entry.isIntersecting && entry.target.id === `card-${currentlySpeakingId}`) {
-            stopSpeech();
-          }
+          if (!entry.isIntersecting && entry.target.id === `card-${currentlySpeakingId}`) stopSpeech();
         });
       }, { threshold: 0.6 });
     }
 
     function generateWikiUrl(title) {
       if (!title) return 'https://pt.wikipedia.org';
-      const cleanQuery = title.replace(/[^\w\sà-úÀ-Ú]/gi, '').trim();
-      return `https://pt.wikipedia.org/w/index.php?search=${encodeURIComponent(cleanQuery)}`;
+      return `https://pt.wikipedia.org/w/index.php?search=${encodeURIComponent(title.replace(/[^\w\sà-úÀ-Ú]/gi, '').trim())}`;
     }
 
-    // GERADOR EM MASSA DE NOTÍCIAS DIÁRIAS VIA GEMINI IA
+    // EXTRAÇÃO SEGURA DE JSON - Evita erros quando o Gemini envia texto a mais
+    function extractJsonFromArray(rawText) {
+      try {
+        const match = rawText.match(/\[[\s\S]*\]/);
+        if (match) return JSON.parse(match[0]);
+        return JSON.parse(rawText.replace(/```json/g, '').replace(/```/g, '').trim());
+      } catch (e) {
+        console.error("Erro ao fazer parse do JSON do Gemini:", e);
+        return [];
+      }
+    }
+
+    // 1. CARREGAR CURRENTS API (Notícias Reais)
+    async function fetchCurrentsAPI() {
+      try {
+        const url = `https://api.currentsapi.services/v1/latest-news?apiKey=${CURRENTS_API_KEY}&language=pt`;
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (data.status === 'ok' && data.news && data.news.length > 0) {
+          return data.news.map((item, idx) => ({
+            id: item.id || `news-cur-${Date.now()}-${idx}`,
+            profile: (idx % 2 === 0) ? PROFILES_DATABASE['g1'] : PROFILES_DATABASE['bbc'],
+            category: (item.category && item.category[0]) ? item.category[0] : 'Notícia',
+            title: cleanText(item.title),
+            description: cleanText(item.description),
+            url: item.url,
+            author: (idx % 2 === 0) ? PROFILES_DATABASE['g1'].name : PROFILES_DATABASE['bbc'].name,
+            published: item.published ? new Date(item.published).toLocaleDateString('pt-BR') : 'Hoje',
+            bgImage: (item.image && item.image !== 'None') ? item.image : DEFAULT_BG,
+            likesCount: Math.floor(Math.random() * 45000) + 1200,
+            commentsCount: Math.floor(Math.random() * 800) + 45
+          }));
+        }
+        return [];
+      } catch (e) {
+        console.warn("Currents API falhou ou cota excedida.", e);
+        return [];
+      }
+    }
+
+    // 2. CARREGAR NOTÍCIAS FRESCAS VIA GEMINI
     async function fetchGeminiFreshNews() {
       const prompt = `Gere 6 notícias e acontecimentos globais de grande destaque atual em português em formato JSON simples.
-Cada objeto no array JSON deve conter:
+Cada objeto no array JSON deve conter APENAS:
 - "category": ("Tecnologia", "Mundo", "Economia", "Ciência" ou "Cultura")
 - "title": Título jornalístico chamativo e atual (max 85 chars)
 - "description": Resumo empolgante dos detalhes da notícia (max 200 chars)
@@ -526,24 +461,19 @@ Cada objeto no array JSON deve conter:
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
         });
-
         const data = await response.json();
-        const rawText = data.candidates[0].content.parts[0].text;
-        const cleanedJsonText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-        const newsArray = JSON.parse(cleanedJsonText);
+        const newsArray = extractJsonFromArray(data.candidates[0].content.parts[0].text);
 
         return newsArray.map((item, idx) => {
           const newsId = `gemini-news-${Date.now()}-${idx}`;
           const titleClean = cleanText(item.title);
-          
           if (item.deepArticle) {
             fullArticleCache[newsId] = `<div class="space-y-4">${item.deepArticle.split('\n\n').map(p => `<p class="text-xs sm:text-sm text-gray-200 leading-relaxed">${escapeHtml(p)}</p>`).join('')}</div>`;
           }
-
           return {
             id: newsId,
             profile: (idx % 2 === 0) ? PROFILES_DATABASE['g1'] : PROFILES_DATABASE['bbc'],
-            category: item.category || 'Notícia',
+            category: item.category || 'Notícia Global',
             title: titleClean,
             description: cleanText(item.description),
             url: generateWikiUrl(titleClean),
@@ -555,15 +485,15 @@ Cada objeto no array JSON deve conter:
           };
         });
       } catch (err) {
+        console.warn("Falha no Gemini Fresh News", err);
         return [];
       }
     }
 
-    // GERADOR DE FATOS DIVERSOS VIA GEMINI IA
+    // 3. CARREGAR FATOS VIA GEMINI
     async function fetchGeminiFacts() {
       const prompt = `Gere exatamente 6 fatos/curiosidades fascinantes e verídicos em português em formato JSON simples. 
-Cada fato deve cobrir OBRIGATORIAMENTE um destes tópicos diferentes: history, science, world, technology, psychology.
-Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação markdown extra, cada objeto contendo:
+Sua resposta DEVE ser estritamente um array JSON sem texto adicional. Objetos:
 - "topic": (um de 'history', 'science', 'world', 'technology', 'psychology')
 - "title": Título curto e impactante (max 80 chars)
 - "description": Resumo empolgante do fato (max 200 chars)
@@ -574,41 +504,21 @@ Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação mar
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }]
-          })
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
         });
-
         const data = await response.json();
-        const rawText = data.candidates[0].content.parts[0].text;
-        const cleanedJsonText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-        const factsArray = JSON.parse(cleanedJsonText);
+        const factsArray = extractJsonFromArray(data.candidates[0].content.parts[0].text);
 
-        const profileMap = {
-          'history': PROFILES_DATABASE['fatos_historicos'],
-          'science': PROFILES_DATABASE['ciencia_espaco'],
-          'world': PROFILES_DATABASE['cultura_curiosidades'],
-          'technology': PROFILES_DATABASE['tech_evolution'],
-          'psychology': PROFILES_DATABASE['mente_comportamento']
-        };
-
-        const categoryMap = {
-          'history': '📜 Fato Histórico',
-          'science': '🧪 Ciência & Espaço',
-          'world': '🗿 Cultura & Mundo',
-          'technology': '💻 Tech & Games',
-          'psychology': '🧠 Psicologia'
-        };
+        const profileMap = { 'history': PROFILES_DATABASE['fatos_historicos'], 'science': PROFILES_DATABASE['ciencia_espaco'], 'world': PROFILES_DATABASE['cultura_curiosidades'], 'technology': PROFILES_DATABASE['tech_evolution'], 'psychology': PROFILES_DATABASE['mente_comportamento'] };
+        const categoryMap = { 'history': '📜 Fato Histórico', 'science': '🧪 Ciência & Espaço', 'world': '🗿 Cultura & Mundo', 'technology': '💻 Tech & Games', 'psychology': '🧠 Psicologia' };
 
         return factsArray.map((item, idx) => {
           const prof = profileMap[item.topic] || PROFILES_DATABASE['fatos_historicos'];
           const newsId = `gemini-fact-${item.topic}-${Date.now()}-${idx}`;
           const titleClean = cleanText(item.title);
-          
           if (item.deepArticle) {
             fullArticleCache[newsId] = `<div class="space-y-4">${item.deepArticle.split('\n\n').map(p => `<p class="text-xs sm:text-sm text-gray-200 leading-relaxed">${escapeHtml(p)}</p>`).join('')}</div>`;
           }
-
           return {
             id: newsId,
             profile: prof,
@@ -625,61 +535,44 @@ Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação mar
           };
         });
       } catch (err) {
-        return generateFallbackFactsLocally();
+        console.warn("Falha no Gemini Facts", err);
+        return [];
       }
     }
 
+    // 4. FALLBACK LOCAL (Garante que nunca fica vazio!)
     function generateFallbackFactsLocally() {
       return [
-        {
-          id: 'fact-loc-1',
-          profile: PROFILES_DATABASE['fatos_historicos'],
-          category: '📜 Fato Histórico',
-          title: 'Em 1914, a Trégua de Natal interrompeu a 1ª Guerra Mundial para um jogo de futebol',
-          description: 'Soldados alemães e britânicos saíram de suas trincheiras na Noite de Natal, trocaram presentes e jogaram futebol na "Terra de Ninguém".',
-          url: 'https://pt.wikipedia.org/wiki/Tr%C3%A9gua_de_Natal',
-          author: PROFILES_DATABASE['fatos_historicos'].name,
-          published: 'Arquivo Histórico',
-          bgImage: 'https://images.unsplash.com/photo-1461360370896-922624d12aa1?auto=format&fit=crop&w=1200&q=80',
-          likesCount: 42100,
-          commentsCount: 380
-        },
-        {
-          id: 'fact-loc-2',
-          profile: PROFILES_DATABASE['ciencia_espaco'],
-          category: '🧪 Ciência & Espaço',
-          title: 'Um dia em Vênus é mais longo do que um ano inteiro em Vênus',
-          description: 'Vênus leva 243 dias terrestres para girar sobre seu próprio eixo, mas apenas 225 dias para dar uma volta completa ao redor do Sol.',
-          url: 'https://pt.wikipedia.org/wiki/V%C3%AAnus_(planeta)',
-          author: PROFILES_DATABASE['ciencia_espaco'].name,
-          published: 'Astronomia',
-          bgImage: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80',
-          likesCount: 38900,
-          commentsCount: 290
-        }
+        { id: 'fact-loc-1', profile: PROFILES_DATABASE['fatos_historicos'], category: '📜 Fato Histórico', title: 'A Trégua de Natal parou a 1ª Guerra Mundial para um jogo de futebol', description: 'Soldados alemães e britânicos trocaram presentes na "Terra de Ninguém" em 1914.', url: 'https://pt.wikipedia.org/wiki/Tr%C3%A9gua_de_Natal', author: PROFILES_DATABASE['fatos_historicos'].name, published: 'Arquivo Histórico', bgImage: 'https://images.unsplash.com/photo-1461360370896-922624d12aa1?auto=format&fit=crop&w=1200&q=80', likesCount: 42100, commentsCount: 380 },
+        { id: 'fact-loc-2', profile: PROFILES_DATABASE['ciencia_espaco'], category: '🧪 Ciência & Espaço', title: 'Um dia em Vênus é mais longo do que um ano inteiro no planeta', description: 'Vênus leva 243 dias terrestres para girar sobre seu próprio eixo, mas apenas 225 dias para dar uma volta completa ao redor do Sol.', url: 'https://pt.wikipedia.org/wiki/V%C3%AAnus_(planeta)', author: PROFILES_DATABASE['ciencia_espaco'].name, published: 'Astronomia', bgImage: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80', likesCount: 38900, commentsCount: 290 },
+        { id: 'fact-loc-3', profile: PROFILES_DATABASE['cultura_curiosidades'], category: '🗿 Cultura & Mundo', title: 'A Finlândia possui mais saunas do que carros particulares', description: 'Com mais de 3 milhões de saunas, faz parte essencial da cultura nórdica.', url: 'https://pt.wikipedia.org/wiki/Sauna_finlandesa', author: PROFILES_DATABASE['cultura_curiosidades'].name, published: 'Curiosidades', bgImage: 'https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?auto=format&fit=crop&w=1200&q=80', likesCount: 29500, commentsCount: 150 },
+        { id: 'fact-loc-4', profile: PROFILES_DATABASE['tech_evolution'], category: '💻 Tech & Games', title: 'O primeiro bug de computador da história foi um inseto de verdade', description: 'Uma mariposa ficou presa nos relés do computador Harvard Mark II em 1947.', url: 'https://pt.wikipedia.org/wiki/Bug', author: PROFILES_DATABASE['tech_evolution'].name, published: 'História Tech', bgImage: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80', likesCount: 51000, commentsCount: 620 },
+        { id: 'fact-loc-5', profile: PROFILES_DATABASE['mente_comportamento'], category: '🧠 Psicologia', title: 'O efeito Déjà Vu ocorre por um atraso no processamento neural', description: 'O cérebro armazena percepções na memória de longo prazo antes da consciência as processar.', url: 'https://pt.wikipedia.org/wiki/D%C3%A9j%C3%A0_vu', author: PROFILES_DATABASE['mente_comportamento'].name, published: 'Neurociência', bgImage: 'https://images.unsplash.com/photo-1507413245164-6160d8298b31?auto=format&fit=crop&w=1200&q=80', likesCount: 34200, commentsCount: 210 }
       ];
     }
 
+    // INICIALIZADOR DO APP (Junta Tudo)
     async function initAppFeed() {
       stopSpeech();
-      feedContainer.innerHTML = `
-        <div class="h-screen w-full flex flex-col justify-center items-center p-6 text-center">
-          <i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-500 mb-3"></i>
-          <h3 class="text-sm font-bold text-gray-300">A carregar feed inteligente com Gemini IA...</h3>
-        </div>
-      `;
+      feedContainer.innerHTML = `<div class="h-screen w-full flex flex-col justify-center items-center p-6 text-center"><i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-500 mb-3"></i><h3 class="text-sm font-bold text-gray-300">A carregar e unificar feed global...</h3></div>`;
 
-      // Carrega em paralelo notícias recentes e fatos fascinantes gerados pela IA
-      const [freshNews, geminiFacts] = await Promise.all([
+      // Requisições paralelas para ganhar tempo
+      const [currentsNews, geminiNews, geminiFacts] = await Promise.all([
+        fetchCurrentsAPI(),
         fetchGeminiFreshNews(),
         fetchGeminiFacts()
       ]);
 
       const localFacts = generateFallbackFactsLocally();
-      newsData = [...freshNews, ...geminiFacts, ...localFacts];
 
+      // Combina todas as fontes que conseguiram retornar conteúdo
+      newsData = [...currentsNews, ...geminiNews, ...geminiFacts];
+
+      // Se falharam todas as fontes externas, coloca os fatos locais no ecrã. Caso contrário, anexa os locais ao final.
       if (newsData.length === 0) {
         newsData = localFacts;
+      } else {
+        newsData = [...newsData, ...localFacts];
       }
 
       currentFilteredNews = shuffleArray(newsData);
@@ -688,14 +581,10 @@ Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação mar
 
     function renderFeed() {
       feedContainer.innerHTML = '';
-
-      let listToRender = currentFilteredNews;
-      if (currentMainTab === 'following') {
-        listToRender = currentFilteredNews.filter(n => followedProfiles.includes(n.profile.id));
-      }
+      let listToRender = currentMainTab === 'following' ? currentFilteredNews.filter(n => followedProfiles.includes(n.profile.id)) : currentFilteredNews;
 
       if (listToRender.length === 0) {
-        showEmptyState(currentMainTab === 'following' ? 'Ainda não segue nenhum perfil ou não há atualizações destes canais.' : 'Nenhuma publicação encontrada para esta categoria.');
+        showEmptyState(currentMainTab === 'following' ? 'Ainda não segue nenhum perfil ou não há atualizações destes canais.' : 'Nenhuma publicação encontrada.');
         return;
       }
 
@@ -714,7 +603,6 @@ Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação mar
             <div class="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
             <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/70"></div>
           </div>
-
           <div class="relative z-10 flex items-end justify-between gap-3 max-w-2xl mx-auto w-full">
             <div class="flex-1 pr-2">
               <div class="flex items-center gap-2 mb-2">
@@ -726,15 +614,8 @@ Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação mar
                   ${escapeHtml(Array.isArray(news.category) ? news.category.join(', ') : news.category)}
                 </span>
               </div>
-
-              <h1 class="text-base sm:text-xl font-black text-white leading-snug mb-2 drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] line-clamp-3">
-                ${escapeHtml(news.title)}
-              </h1>
-
-              <p class="text-xs text-gray-200 line-clamp-2 mb-3 drop-shadow opacity-90">
-                ${escapeHtml(news.description)}
-              </p>
-
+              <h1 class="text-base sm:text-xl font-black text-white leading-snug mb-2 drop-shadow-[0_2px_10px_rgba(0,0,0,0.9)] line-clamp-3">${escapeHtml(news.title)}</h1>
+              <p class="text-xs text-gray-200 line-clamp-2 mb-3 drop-shadow opacity-90">${escapeHtml(news.description)}</p>
               <div class="flex items-center gap-2">
                 <button onclick="openDeepDive('${news.id}')" class="py-2 px-3.5 bg-indigo-600/90 hover:bg-indigo-600 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-lg border border-indigo-400/40">
                   <i class="fa-solid fa-book-open text-xs"></i> Ver Matéria Completa
@@ -744,62 +625,35 @@ Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação mar
                 </a>
               </div>
             </div>
-
             <div class="flex flex-col items-center gap-4 py-2">
               <div class="relative mb-1">
-                <img onclick="openProfileModal('${news.profile.id}')" src="${escapeHtml(news.profile.avatar)}" alt="Avatar" class="w-11 h-11 rounded-full object-cover border-2 border-white shadow-xl cursor-pointer">
-                <button onclick="toggleFollowProfile('${news.profile.id}')" class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full ${isFollowing ? 'bg-gray-700 text-white' : 'bg-red-500 text-white'} flex items-center justify-center text-[10px] shadow-md transition active:scale-95">
-                  <i class="fa-solid ${isFollowing ? 'fa-check' : 'fa-plus'}"></i>
-                </button>
+                <img onclick="openProfileModal('${news.profile.id}')" src="${escapeHtml(news.profile.avatar)}" class="w-11 h-11 rounded-full object-cover border-2 border-white shadow-xl cursor-pointer">
+                <button onclick="toggleFollowProfile('${news.profile.id}')" class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full ${isFollowing ? 'bg-gray-700' : 'bg-red-500'} text-white flex items-center justify-center text-[10px] shadow-md transition active:scale-95"><i class="fa-solid ${isFollowing ? 'fa-check' : 'fa-plus'}"></i></button>
               </div>
-
               <button onclick="toggleLike('${news.id}')" class="flex flex-col items-center group">
-                <div class="w-10 h-10 glass-pill rounded-full flex items-center justify-center text-lg transition active:scale-95 shadow-lg ${isLiked ? 'text-red-500' : 'text-white'}">
-                  <i id="like-icon-${news.id}" class="fa-solid fa-heart ${isLiked ? 'heart-anim' : ''}"></i>
-                </div>
-                <span id="like-count-${news.id}" class="text-[10px] font-bold text-gray-200 mt-1 drop-shadow">
-                  ${formatNumber(news.likesCount + (isLiked ? 1 : 0))}
-                </span>
+                <div class="w-10 h-10 glass-pill rounded-full flex items-center justify-center text-lg transition active:scale-95 shadow-lg ${isLiked ? 'text-red-500' : 'text-white'}"><i id="like-icon-${news.id}" class="fa-solid fa-heart ${isLiked ? 'heart-anim' : ''}"></i></div>
+                <span id="like-count-${news.id}" class="text-[10px] font-bold text-gray-200 mt-1 drop-shadow">${formatNumber(news.likesCount + (isLiked ? 1 : 0))}</span>
               </button>
-
               <button onclick="openCommentsModal('${news.id}')" class="flex flex-col items-center">
-                <div class="w-10 h-10 glass-pill rounded-full flex items-center justify-center text-white text-base transition active:scale-95 shadow-lg">
-                  <i class="fa-solid fa-comment-dots"></i>
-                </div>
-                <span class="text-[10px] font-bold text-gray-200 mt-1 drop-shadow">
-                  ${formatNumber(news.commentsCount + (newsComments[news.id] ? newsComments[news.id].length : 0))}
-                </span>
+                <div class="w-10 h-10 glass-pill rounded-full flex items-center justify-center text-white text-base transition active:scale-95 shadow-lg"><i class="fa-solid fa-comment-dots"></i></div>
+                <span class="text-[10px] font-bold text-gray-200 mt-1 drop-shadow">${formatNumber(news.commentsCount + (newsComments[news.id] ? newsComments[news.id].length : 0))}</span>
               </button>
-
               <button onclick="toggleBookmark('${news.id}')" class="flex flex-col items-center">
-                <div class="w-10 h-10 glass-pill rounded-full flex items-center justify-center text-base transition active:scale-95 shadow-lg ${isBookmarked ? 'text-amber-400' : 'text-white'}">
-                  <i class="fa-${isBookmarked ? 'solid' : 'regular'} fa-bookmark"></i>
-                </div>
+                <div class="w-10 h-10 glass-pill rounded-full flex items-center justify-center text-base transition active:scale-95 shadow-lg ${isBookmarked ? 'text-amber-400' : 'text-white'}"><i class="fa-${isBookmarked ? 'solid' : 'regular'} fa-bookmark"></i></div>
                 <span class="text-[10px] font-bold text-gray-200 mt-1 drop-shadow">Guardar</span>
               </button>
-
               <button onclick="speakNews('${news.id}')" class="flex flex-col items-center">
-                <div class="w-10 h-10 glass-pill rounded-full flex items-center justify-center text-indigo-400 text-base transition active:scale-95 shadow-lg">
-                  <i class="fa-solid fa-volume-high"></i>
-                </div>
+                <div class="w-10 h-10 glass-pill rounded-full flex items-center justify-center text-indigo-400 text-base transition active:scale-95 shadow-lg"><i class="fa-solid fa-volume-high"></i></div>
                 <span class="text-[10px] font-bold text-gray-200 mt-1 drop-shadow">Ouvir</span>
               </button>
-
               <button onclick="shareNews('${news.id}')" class="flex flex-col items-center">
-                <div class="w-10 h-10 glass-pill rounded-full flex items-center justify-center text-white text-base transition active:scale-95 shadow-lg">
-                  <i class="fa-solid fa-share"></i>
-                </div>
+                <div class="w-10 h-10 glass-pill rounded-full flex items-center justify-center text-white text-base transition active:scale-95 shadow-lg"><i class="fa-solid fa-share"></i></div>
                 <span class="text-[10px] font-bold text-gray-200 mt-1 drop-shadow">Partilhar</span>
               </button>
-
-              <div class="w-9 h-9 rounded-full bg-black/80 border-2 border-gray-700 flex items-center justify-center animate-spin-disc mt-1 shadow-2xl">
-                <div class="w-3 h-3 rounded-full bg-indigo-500"></div>
-              </div>
-
+              <div class="w-9 h-9 rounded-full bg-black/80 border-2 border-gray-700 flex items-center justify-center animate-spin-disc mt-1 shadow-2xl"><div class="w-3 h-3 rounded-full bg-indigo-500"></div></div>
             </div>
           </div>
         `;
-
         feedContainer.appendChild(card);
         if (observer) observer.observe(card);
       });
@@ -813,23 +667,10 @@ Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação mar
 
     function switchMainTab(tab) {
       currentMainTab = tab;
-      const btnFollowing = document.getElementById('tab-following');
-      const btnForYou = document.getElementById('tab-foryou');
-      const indFollowing = document.getElementById('indicator-following');
-      const indForYou = document.getElementById('indicator-foryou');
-
-      if (tab === 'following') {
-        btnFollowing.className = 'text-white font-black text-base relative py-1';
-        btnForYou.className = 'text-gray-400 hover:text-white transition relative py-1';
-        indFollowing.classList.remove('hidden');
-        indForYou.classList.add('hidden');
-      } else {
-        btnForYou.className = 'text-white font-black text-base relative py-1';
-        btnFollowing.className = 'text-gray-400 hover:text-white transition relative py-1';
-        indForYou.classList.remove('hidden');
-        indFollowing.classList.add('hidden');
-      }
-
+      document.getElementById('tab-following').className = tab === 'following' ? 'text-white font-black text-base relative py-1' : 'text-gray-400 hover:text-white transition relative py-1';
+      document.getElementById('tab-foryou').className = tab === 'foryou' ? 'text-white font-black text-base relative py-1' : 'text-gray-400 hover:text-white transition relative py-1';
+      document.getElementById('indicator-following').classList.toggle('hidden', tab !== 'following');
+      document.getElementById('indicator-foryou').classList.toggle('hidden', tab !== 'foryou');
       renderFeed();
     }
 
@@ -856,7 +697,6 @@ Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação mar
     function openProfileModal(profId) {
       const prof = PROFILES_DATABASE[profId];
       if (!prof) return;
-
       currentActiveProfileId = profId;
       document.getElementById('profile-header-handle').innerText = prof.handle;
       document.getElementById('profile-modal-avatar').src = prof.avatar;
@@ -888,32 +728,22 @@ Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação mar
         item.innerHTML = `
           <img src="${escapeHtml(post.bgImage)}" class="w-full h-full object-cover group-hover:scale-105 transition">
           <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
-          <div class="absolute bottom-1.5 left-1.5 right-1.5 text-[9px] font-bold text-white truncate">
-            <i class="fa-solid fa-play text-[8px] mr-1"></i> ${escapeHtml(post.title)}
-          </div>
+          <div class="absolute bottom-1.5 left-1.5 right-1.5 text-[9px] font-bold text-white truncate"><i class="fa-solid fa-play text-[8px] mr-1"></i> ${escapeHtml(post.title)}</div>
         `;
         gridContainer.appendChild(item);
       });
-
       document.getElementById('profile-modal').classList.remove('hidden');
     }
 
-    function closeProfileModal() {
-      document.getElementById('profile-modal').classList.add('hidden');
-      currentActiveProfileId = null;
-    }
+    function closeProfileModal() { document.getElementById('profile-modal').classList.add('hidden'); currentActiveProfileId = null; }
 
     function openCommentsModal(id) {
       currentActiveCommentNewsId = id;
-      const modal = document.getElementById('comments-modal');
       renderCommentsList();
-      modal.classList.remove('hidden');
+      document.getElementById('comments-modal').classList.remove('hidden');
     }
 
-    function closeCommentsModal(e) {
-      document.getElementById('comments-modal').classList.add('hidden');
-      currentActiveCommentNewsId = null;
-    }
+    function closeCommentsModal(e) { document.getElementById('comments-modal').classList.add('hidden'); currentActiveCommentNewsId = null; }
 
     function renderCommentsList() {
       const container = document.getElementById('comments-list');
@@ -929,7 +759,6 @@ Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação mar
           </div>
         </div>
       `;
-
       comments.forEach(c => {
         const div = document.createElement('div');
         div.className = 'flex items-start gap-2.5 text-xs';
@@ -949,12 +778,9 @@ Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação mar
       const val = input.value.trim();
       if (!val || !currentActiveCommentNewsId) return;
 
-      if (!newsComments[currentActiveCommentNewsId]) {
-        newsComments[currentActiveCommentNewsId] = [];
-      }
+      if (!newsComments[currentActiveCommentNewsId]) newsComments[currentActiveCommentNewsId] = [];
       newsComments[currentActiveCommentNewsId].push(val);
       setLocalStorageItem('gp_comments', newsComments);
-
       input.value = '';
       renderCommentsList();
       renderFeed();
@@ -964,7 +790,6 @@ Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação mar
     function shareNews(id) {
       const news = newsData.find(n => n.id === id);
       if (!news) return;
-
       let copied = false;
       try {
         const dummy = document.createElement('textarea');
@@ -973,32 +798,18 @@ Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação mar
         dummy.select();
         copied = document.execCommand('copy');
         document.body.removeChild(dummy);
-      } catch (e) {
-        copied = false;
-      }
-
-      if (copied) {
-        showToast('🔗 Link copiado!');
-      } else {
-        showToast('Link disponível na opção Origem');
-      }
+      } catch (e) { copied = false; }
+      showToast(copied ? '🔗 Link copiado!' : 'Link disponível na opção Origem');
     }
 
     function openDeepDive(id) {
       const news = newsData.find(item => item.id === id);
       if (!news) return;
-
       currentActiveModalNewsId = id;
-
-      document.getElementById('modal-badge-container').innerHTML = `
-        <span class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-indigo-600/40 text-indigo-200 border border-indigo-400/40">
-          ${escapeHtml(Array.isArray(news.category) ? news.category.join(', ') : news.category)}
-        </span>
-      `;
+      document.getElementById('modal-badge-container').innerHTML = `<span class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-indigo-600/40 text-indigo-200 border border-indigo-400/40">${escapeHtml(Array.isArray(news.category) ? news.category.join(', ') : news.category)}</span>`;
       document.getElementById('modal-title').innerText = news.title;
       document.getElementById('modal-author').innerText = `Por: ${news.author} • ${news.published}`;
       document.getElementById('modal-link').href = news.url;
-
       document.getElementById('deepdive-modal').classList.remove('hidden');
       switchModalTab('full');
     }
@@ -1006,7 +817,6 @@ Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação mar
     function switchModalTab(tab) {
       const news = newsData.find(item => item.id === currentActiveModalNewsId);
       if (!news) return;
-
       const btnFull = document.getElementById('btn-tab-full');
       const btnSummary = document.getElementById('btn-tab-summary');
       const bodyContainer = document.getElementById('modal-body-content');
@@ -1018,17 +828,7 @@ Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação mar
       } else {
         btnSummary.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-indigo-600 text-white flex items-center gap-2';
         btnFull.className = 'px-4 py-2 rounded-xl text-xs font-bold transition bg-gray-800/60 text-gray-400 hover:text-white flex items-center gap-2';
-        
-        bodyContainer.innerHTML = `
-          <div class="p-4 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl space-y-3">
-            <h4 class="font-bold text-indigo-300 text-xs uppercase flex items-center gap-2">
-              <i class="fa-solid fa-bolt"></i> Resumo Rápido
-            </h4>
-            <p class="text-xs sm:text-sm text-gray-200 leading-relaxed">
-              ${escapeHtml(news.description)}
-            </p>
-          </div>
-        `;
+        bodyContainer.innerHTML = `<div class="p-4 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl space-y-3"><h4 class="font-bold text-indigo-300 text-xs uppercase flex items-center gap-2"><i class="fa-solid fa-bolt"></i> Resumo Rápido</h4><p class="text-xs sm:text-sm text-gray-200 leading-relaxed">${escapeHtml(news.description)}</p></div>`;
       }
     }
 
@@ -1037,102 +837,56 @@ Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação mar
         container.innerHTML = fullArticleCache[news.id];
         return;
       }
-
-      container.innerHTML = `
-        <div class="flex flex-col items-center justify-center py-8 text-center space-y-3">
-          <i class="fa-solid fa-spinner fa-spin text-2xl text-indigo-400"></i>
-          <p class="text-xs text-gray-400">A carregar conteúdo completo...</p>
-        </div>
-      `;
-
+      container.innerHTML = `<div class="flex flex-col items-center justify-center py-8 text-center space-y-3"><i class="fa-solid fa-spinner fa-spin text-2xl text-indigo-400"></i><p class="text-xs text-gray-400">A carregar conteúdo completo...</p></div>`;
       let extractedParagraphs = [];
-
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 4000);
-
-        const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(news.url)}`, {
-          signal: controller.signal
-        });
+        const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(news.url)}`, { signal: controller.signal });
         clearTimeout(timeoutId);
-
         const data = await response.json();
         if (data.contents) {
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(data.contents, 'text/html');
-          const pElements = doc.querySelectorAll('article p, main p, p');
-          pElements.forEach(p => {
+          const doc = new DOMParser().parseFromString(data.contents, 'text/html');
+          doc.querySelectorAll('article p, main p, p').forEach(p => {
             const txt = cleanText(p.textContent);
-            if (txt.length > 50 && !txt.includes('Cookie') && !txt.includes('direitos reservados')) {
-              extractedParagraphs.push(txt);
-            }
+            if (txt.length > 50 && !txt.includes('Cookie') && !txt.includes('direitos reservados')) extractedParagraphs.push(txt);
           });
         }
       } catch (e) {}
 
-      if (extractedParagraphs.length < 2) {
-        extractedParagraphs = generateStructuredArticle(news);
-      }
+      if (extractedParagraphs.length < 2) extractedParagraphs = [news.description, `Esta publicação vem sendo acompanhada com grande interesse pelo público. Os desdobramentos trazidos por ${news.author} analisam em profundidade os principais fatores e implicações deste tópico.`, `Segundo especialistas e registros associados, os elementos relatados refletem tendências e fatos cruciais que ajudam a entender o cenário atual e seu impacto contínuo.`];
 
       const contentHTML = `
         <div class="space-y-4">
           <div class="p-3 bg-indigo-950/30 border border-indigo-500/20 rounded-xl flex items-center justify-between text-xs text-indigo-300">
-            <span><i class="fa-solid fa-book-open mr-1"></i> Leitura Completa</span>
-            <span>~${Math.max(1, Math.ceil(extractedParagraphs.join(' ').split(' ').length / 180))} min</span>
+            <span><i class="fa-solid fa-book-open mr-1"></i> Leitura Completa</span><span>~${Math.max(1, Math.ceil(extractedParagraphs.join(' ').split(' ').length / 180))} min</span>
           </div>
           ${extractedParagraphs.map(p => `<p class="text-xs sm:text-sm text-gray-200 leading-relaxed">${escapeHtml(p)}</p>`).join('')}
         </div>
       `;
-
       fullArticleCache[news.id] = contentHTML;
       container.innerHTML = contentHTML;
     }
 
-    function generateStructuredArticle(news) {
-      return [
-        news.description,
-        `Esta publicação vem sendo acompanhada com grande interesse pelo público. Os desdobramentos trazidos por ${news.author} analisam em profundidade os principais fatores e implicações deste tópico.`,
-        `Segundo especialistas e registros associados, os elementos relatados refletem tendências e fatos cruciais que ajudam a entender o cenário atual e seu impacto contínuo.`,
-        `O GlobalPulse Shorts segue a reunir e disponibilizar análises completas e atualizadas sobre ciência, história, tecnologia e geopolítica.`
-      ];
-    }
-
-    function closeDeepDive() {
-      document.getElementById('deepdive-modal').classList.add('hidden');
-      currentActiveModalNewsId = null;
-    }
+    function closeDeepDive() { document.getElementById('deepdive-modal').classList.add('hidden'); currentActiveModalNewsId = null; }
 
     function speakNews(id) {
       const news = newsData.find(item => item.id === id);
       if (!news) return;
-
       if ('speechSynthesis' in window) {
-        if (currentlySpeakingId === id) {
-          stopSpeech();
-          return;
-        }
-
+        if (currentlySpeakingId === id) { stopSpeech(); return; }
         stopSpeech();
         currentlySpeakingId = id;
         document.getElementById(`card-${id}`)?.classList.add('speaking-active');
-
-        const textToSpeak = `${news.title}. ${news.description}`;
-        const utterance = new SpeechSynthesisUtterance(textToSpeak);
+        const utterance = new SpeechSynthesisUtterance(`${news.title}. ${news.description}`);
         utterance.lang = 'pt-PT';
-        utterance.rate = 1.0;
-
+        const ptVoice = window.speechSynthesis.getVoices().find(v => v.lang.includes('pt'));
+        if (ptVoice) utterance.voice = ptVoice;
         utterance.onend = () => stopSpeech();
         utterance.onerror = () => stopSpeech();
-
-        const voices = window.speechSynthesis.getVoices();
-        const ptVoice = voices.find(v => v.lang.includes('pt'));
-        if (ptVoice) utterance.voice = ptVoice;
-
         window.speechSynthesis.speak(utterance);
         showToast('🔊 Leitura por voz iniciada');
-      } else {
-        alert('O seu navegador não suporta leitura por voz.');
-      }
+      } else { alert('O seu navegador não suporta leitura por voz.'); }
     }
 
     function toggleBookmark(id) {
@@ -1148,291 +902,111 @@ Sua resposta DEVE ser estritamente um array JSON de objetos sem formatação mar
     }
 
     async function filterCategory(category) {
-      if (category === 'ALL') {
-        currentFilteredNews = shuffleArray([...newsData]);
-        renderFeed();
-        return;
-      }
-
+      if (category === 'ALL') { currentFilteredNews = shuffleArray([...newsData]); renderFeed(); return; }
       const queryNorm = normalizeStr(category);
-
       const matches = newsData.filter(n => {
-        const catStr = Array.isArray(n.category) ? n.category.join(' ') : (n.category || '');
-        const catNorm = normalizeStr(catStr);
-        const profNorm = normalizeStr(n.profile ? n.profile.id : '');
-        const titleNorm = normalizeStr(n.title);
-
-        return catNorm.includes(queryNorm) || profNorm.includes(queryNorm) || titleNorm.includes(queryNorm);
+        const catNorm = normalizeStr(Array.isArray(n.category) ? n.category.join(' ') : (n.category || ''));
+        return catNorm.includes(queryNorm) || normalizeStr(n.profile ? n.profile.id : '').includes(queryNorm) || normalizeStr(n.title).includes(queryNorm);
       });
-
-      if (matches.length > 0) {
-        currentFilteredNews = matches;
-        renderFeed();
-        feedContainer.scrollTo({ top: 0, behavior: 'smooth' });
-      } else {
-        await generateCategoryContentWithGemini(category);
-      }
+      if (matches.length > 0) { currentFilteredNews = matches; renderFeed(); feedContainer.scrollTo({ top: 0, behavior: 'smooth' }); } 
+      else { await generateCategoryContentWithGemini(category); }
     }
 
     async function generateCategoryContentWithGemini(category) {
-      feedContainer.innerHTML = `
-        <div class="h-screen w-full flex flex-col justify-center items-center p-6 text-center">
-          <i class="fa-solid fa-wand-magic-sparkles text-3xl text-indigo-400 animate-pulse mb-3"></i>
-          <h3 class="text-sm font-bold text-gray-300">A gerar notícias sobre "${escapeHtml(category)}" via Gemini IA...</h3>
-        </div>
-      `;
-
+      feedContainer.innerHTML = `<div class="h-screen w-full flex flex-col justify-center items-center p-6 text-center"><i class="fa-solid fa-wand-magic-sparkles text-3xl text-indigo-400 animate-pulse mb-3"></i><h3 class="text-sm font-bold text-gray-300">A gerar notícias sobre "${escapeHtml(category)}" via Gemini IA...</h3></div>`;
       try {
         const prompt = `Gere 3 fatos/notícias verídicos e fascinantes sobre o tema: "${category}" em português.
-Retorne um array JSON com objetos contendo:
+Retorne um array JSON sem markdown. Campos do objeto:
 - "title": Título chamativo (max 80 chars)
 - "category": "${category}"
 - "description": Resumo empolgante (max 200 chars)
 - "deepArticle": Texto de 3 parágrafos explicando o assunto.`;
-
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-        });
-
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
         const data = await response.json();
-        const rawText = data.candidates[0].content.parts[0].text;
-        const cleanedJsonText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-        const generatedList = JSON.parse(cleanedJsonText);
+        const generatedList = extractJsonFromArray(data.candidates[0].content.parts[0].text);
 
         const newPosts = generatedList.map((item, idx) => {
           const newId = `cat-gen-${Date.now()}-${idx}`;
           const titleClean = cleanText(item.title);
-
-          if (item.deepArticle) {
-            fullArticleCache[newId] = `<div class="space-y-4">${item.deepArticle.split('\n\n').map(p => `<p class="text-xs sm:text-sm text-gray-200 leading-relaxed">${escapeHtml(p)}</p>`).join('')}</div>`;
-          }
-
-          return {
-            id: newId,
-            profile: PROFILES_DATABASE['fatos_historicos'],
-            category: `🤖 ${item.category || category}`,
-            title: titleClean,
-            description: cleanText(item.description),
-            url: generateWikiUrl(titleClean),
-            author: 'Gemini IA',
-            published: 'Gerado Agora',
-            bgImage: DEFAULT_BG,
-            likesCount: Math.floor(Math.random() * 15000) + 2000,
-            commentsCount: Math.floor(Math.random() * 500) + 30
-          };
+          if (item.deepArticle) fullArticleCache[newId] = `<div class="space-y-4">${item.deepArticle.split('\n\n').map(p => `<p class="text-xs sm:text-sm text-gray-200 leading-relaxed">${escapeHtml(p)}</p>`).join('')}</div>`;
+          return { id: newId, profile: PROFILES_DATABASE['fatos_historicos'], category: `🤖 ${item.category || category}`, title: titleClean, description: cleanText(item.description), url: generateWikiUrl(titleClean), author: 'Gemini IA', published: 'Gerado Agora', bgImage: DEFAULT_BG, likesCount: Math.floor(Math.random() * 15000) + 2000, commentsCount: Math.floor(Math.random() * 500) + 30 };
         });
-
         newsData.unshift(...newPosts);
         currentFilteredNews = newPosts;
         renderFeed();
         showToast(`✨ Novas matérias de ${category} geradas!`);
-      } catch (e) {
-        showEmptyState(`Sem publicações disponíveis para a categoria "${category}".`);
-      }
+      } catch (e) { showEmptyState(`Sem publicações disponíveis para a categoria "${category}".`); }
     }
 
-    function handleSearchKeyup(e) {
-      if (e.key === 'Enter') {
-        triggerGeminiSearch();
-      } else {
-        filterLocalSearch();
-      }
-    }
+    function handleSearchKeyup(e) { e.key === 'Enter' ? triggerGeminiSearch() : filterLocalSearch(); }
 
     function filterLocalSearch() {
       const query = document.getElementById('search-input').value.toLowerCase().trim();
-      const resultsContainer = document.getElementById('search-results-list');
-      const statsContainer = document.getElementById('search-results-stats');
-
-      if (!query) {
-        statsContainer.innerText = '';
-        resultsContainer.innerHTML = '<div class="text-center py-12 text-gray-500 text-xs">Digite qualquer termo para pesquisar ou gerar uma matéria com o Gemini IA...</div>';
-        return;
-      }
-
-      const matches = newsData.filter(news => 
-        news.title.toLowerCase().includes(query) ||
-        (news.description && news.description.toLowerCase().includes(query)) ||
-        (Array.isArray(news.category) ? news.category.join(' ') : news.category).toLowerCase().includes(query) ||
-        news.author.toLowerCase().includes(query)
-      );
-
-      renderSearchResults(matches, query);
+      if (!query) { document.getElementById('search-results-stats').innerText = ''; document.getElementById('search-results-list').innerHTML = '<div class="text-center py-12 text-gray-500 text-xs">Digite qualquer termo para pesquisar ou gerar com IA...</div>'; return; }
+      renderSearchResults(newsData.filter(news => news.title.toLowerCase().includes(query) || (news.description && news.description.toLowerCase().includes(query)) || (Array.isArray(news.category) ? news.category.join(' ') : news.category).toLowerCase().includes(query) || news.author.toLowerCase().includes(query)), query);
     }
 
     async function triggerGeminiSearch() {
       const query = document.getElementById('search-input').value.trim();
       if (!query) return;
+      const matches = newsData.filter(news => news.title.toLowerCase().includes(query.toLowerCase()) || (news.description && news.description.toLowerCase().includes(query.toLowerCase())));
+      if (matches.length > 0) { renderSearchResults(matches, query); return; }
 
-      const resultsContainer = document.getElementById('search-results-list');
-      const statsContainer = document.getElementById('search-results-stats');
-
-      const matches = newsData.filter(news => 
-        news.title.toLowerCase().includes(query.toLowerCase()) ||
-        (news.description && news.description.toLowerCase().includes(query.toLowerCase()))
-      );
-
-      if (matches.length > 0) {
-        renderSearchResults(matches, query);
-        return;
-      }
-
-      statsContainer.innerText = `Gerando matéria exclusiva via Gemini IA...`;
-      resultsContainer.innerHTML = `
-        <div class="flex flex-col items-center justify-center py-12 text-center space-y-3">
-          <i class="fa-solid fa-wand-magic-sparkles text-3xl text-indigo-400 animate-pulse"></i>
-          <p class="text-xs text-gray-300 font-bold">O Gemini IA está a escrever uma matéria sobre "${escapeHtml(query)}"...</p>
-        </div>
-      `;
-
+      document.getElementById('search-results-stats').innerText = `Gerando matéria exclusiva...`;
+      document.getElementById('search-results-list').innerHTML = `<div class="flex flex-col items-center justify-center py-12 text-center space-y-3"><i class="fa-solid fa-wand-magic-sparkles text-3xl text-indigo-400 animate-pulse"></i><p class="text-xs text-gray-300 font-bold">O Gemini está a escrever sobre "${escapeHtml(query)}"...</p></div>`;
       try {
         const prompt = `Escreva uma matéria jornalística fascinante e verídica em português sobre o tema: "${query}".
-Retorne estritamente um objeto JSON com os campos:
-- "title": Título chamativo estilo notícia/artigo (max 90 chars)
-- "category": Categoria adequada (ex: "Tecnologia", "História", "Ciência", "Mundo")
+Retorne estritamente um array JSON contendo APENAS 1 objeto com os campos (SEM texto Markdown ao redor):
+- "title": Título chamativo estilo artigo (max 90 chars)
+- "category": Categoria (ex: "Tecnologia", "História")
 - "description": Resumo empolgante do assunto (max 220 chars)
-- "deepArticle": Reportagem completa de 3 parágrafos explicando detalhadamente o tema.`;
-
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }]
-          })
-        });
-
+- "deepArticle": Reportagem completa de 3 parágrafos.`;
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }) });
         const data = await response.json();
-        const rawText = data.candidates[0].content.parts[0].text;
-        const cleanedJsonText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-        const generatedFact = JSON.parse(cleanedJsonText);
+        let generatedFact = extractJsonFromArray(data.candidates[0].content.parts[0].text);
+        if (Array.isArray(generatedFact)) generatedFact = generatedFact[0];
 
         const newId = `gemini-search-${Date.now()}`;
         const titleClean = cleanText(generatedFact.title);
-
-        const newPost = {
-          id: newId,
-          profile: PROFILES_DATABASE['fatos_historicos'],
-          category: `🤖 ${generatedFact.category || 'Especial IA'}`,
-          title: titleClean,
-          description: cleanText(generatedFact.description),
-          url: generateWikiUrl(titleClean),
-          author: 'Gemini IA Reporter',
-          published: 'Gerado Agora',
-          bgImage: DEFAULT_BG,
-          likesCount: Math.floor(Math.random() * 10000) + 1200,
-          commentsCount: Math.floor(Math.random() * 300) + 25
-        };
-
-        if (generatedFact.deepArticle) {
-          fullArticleCache[newId] = `<div class="space-y-4">${generatedFact.deepArticle.split('\n\n').map(p => `<p class="text-xs sm:text-sm text-gray-200 leading-relaxed">${escapeHtml(p)}</p>`).join('')}</div>`;
-        }
-
-        newsData.unshift(newPost);
-        currentFilteredNews.unshift(newPost);
-        renderFeed();
-
-        renderSearchResults([newPost], query);
-        showToast('✨ Matéria criada com sucesso pelo Gemini!');
-
+        const newPost = { id: newId, profile: PROFILES_DATABASE['fatos_historicos'], category: `🤖 ${generatedFact.category || 'Especial IA'}`, title: titleClean, description: cleanText(generatedFact.description), url: generateWikiUrl(titleClean), author: 'Gemini IA Reporter', published: 'Gerado Agora', bgImage: DEFAULT_BG, likesCount: Math.floor(Math.random() * 10000) + 1200, commentsCount: Math.floor(Math.random() * 300) + 25 };
+        
+        if (generatedFact.deepArticle) fullArticleCache[newId] = `<div class="space-y-4">${generatedFact.deepArticle.split('\n\n').map(p => `<p class="text-xs sm:text-sm text-gray-200 leading-relaxed">${escapeHtml(p)}</p>`).join('')}</div>`;
+        newsData.unshift(newPost); currentFilteredNews.unshift(newPost); renderFeed(); renderSearchResults([newPost], query); showToast('✨ Matéria criada com sucesso!');
       } catch (err) {
-        resultsContainer.innerHTML = `
-          <div class="text-center py-12 text-gray-500 text-xs">
-            <i class="fa-solid fa-triangle-exclamation text-2xl mb-2 text-rose-500"></i>
-            <p>Não foi possível gerar a matéria para "${escapeHtml(query)}". Tente outro termo.</p>
-          </div>
-        `;
+        document.getElementById('search-results-list').innerHTML = `<div class="text-center py-12 text-gray-500 text-xs"><i class="fa-solid fa-triangle-exclamation text-2xl mb-2 text-rose-500"></i><p>Não foi possível gerar a matéria para "${escapeHtml(query)}". Tente outro termo.</p></div>`;
       }
     }
 
     function renderSearchResults(items, query) {
-      const resultsContainer = document.getElementById('search-results-list');
-      const statsContainer = document.getElementById('search-results-stats');
-
-      statsContainer.innerText = `${items.length} publicação(ões) encontrada(s)`;
-
+      document.getElementById('search-results-stats').innerText = `${items.length} publicação(ões) encontrada(s)`;
+      const list = document.getElementById('search-results-list');
       if (items.length === 0) {
-        resultsContainer.innerHTML = `
-          <div class="text-center py-12 text-gray-500 text-xs">
-            <i class="fa-solid fa-magnifying-glass text-2xl mb-2 text-gray-600"></i>
-            <p>Nenhuma matéria encontrada para "${escapeHtml(query)}".</p>
-            <button onclick="triggerGeminiSearch()" class="mt-3 px-4 py-2 bg-indigo-600 text-white font-bold rounded-xl text-xs">
-              <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Criar matéria com Gemini IA
-            </button>
-          </div>
-        `;
+        list.innerHTML = `<div class="text-center py-12 text-gray-500 text-xs"><i class="fa-solid fa-magnifying-glass text-2xl mb-2 text-gray-600"></i><p>Nenhuma matéria encontrada.</p><button onclick="triggerGeminiSearch()" class="mt-3 px-4 py-2 bg-indigo-600 text-white font-bold rounded-xl text-xs"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Criar matéria com Gemini IA</button></div>`;
       } else {
-        resultsContainer.innerHTML = '';
+        list.innerHTML = '';
         items.forEach(news => {
           const item = document.createElement('div');
           item.className = 'p-3 bg-gray-900/80 border border-gray-800 rounded-2xl flex gap-3 items-center hover:border-indigo-500/50 transition cursor-pointer';
-          item.onclick = () => {
-            toggleSearchModal();
-            const targetCard = document.getElementById(`card-${news.id}`);
-            if (targetCard) targetCard.scrollIntoView({ behavior: 'smooth' });
-          };
-
-          item.innerHTML = `
-            <img src="${escapeHtml(news.bgImage)}" alt="Thumb" class="w-16 h-16 rounded-xl object-cover border border-gray-800">
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 mb-1">
-                <span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-indigo-600/40 text-indigo-200">
-                  ${escapeHtml(Array.isArray(news.category) ? news.category.join(', ') : news.category)}
-                </span>
-                <span class="text-[10px] text-gray-400 truncate">${escapeHtml(news.author)}</span>
-              </div>
-              <h4 class="text-xs font-bold text-white truncate">${escapeHtml(news.title)}</h4>
-              <p class="text-[10px] text-gray-400 line-clamp-1 mt-0.5">${escapeHtml(news.description)}</p>
-            </div>
-            <button onclick="event.stopPropagation(); toggleSearchModal(); openDeepDive('${news.id}');" class="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-[10px] font-bold">
-              Ler
-            </button>
-          `;
-          resultsContainer.appendChild(item);
+          item.onclick = () => { toggleSearchModal(); document.getElementById(`card-${news.id}`)?.scrollIntoView({ behavior: 'smooth' }); };
+          item.innerHTML = `<img src="${escapeHtml(news.bgImage)}" class="w-16 h-16 rounded-xl object-cover border border-gray-800"><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-indigo-600/40 text-indigo-200">${escapeHtml(Array.isArray(news.category) ? news.category.join(', ') : news.category)}</span><span class="text-[10px] text-gray-400 truncate">${escapeHtml(news.author)}</span></div><h4 class="text-xs font-bold text-white truncate">${escapeHtml(news.title)}</h4><p class="text-[10px] text-gray-400 line-clamp-1 mt-0.5">${escapeHtml(news.description)}</p></div><button onclick="event.stopPropagation(); toggleSearchModal(); openDeepDive('${news.id}');" class="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-[10px] font-bold">Ler</button>`;
+          list.appendChild(item);
         });
       }
     }
 
-    function toggleSearchModal() {
-      const modal = document.getElementById('search-modal');
-      modal.classList.toggle('hidden');
-      if (!modal.classList.contains('hidden')) {
-        document.getElementById('search-input').focus();
-      }
-    }
-
-    function toggleTopicsModal() {
-      document.getElementById('topics-modal').classList.toggle('hidden');
-    }
-
-    function showEmptyState(msg) {
-      feedContainer.innerHTML = `
-        <div class="h-screen w-full flex flex-col justify-center items-center p-6 text-center">
-          <i class="fa-solid fa-folder-open text-4xl text-gray-600 mb-3"></i>
-          <h3 class="text-sm font-bold text-gray-300">${escapeHtml(msg)}</h3>
-          <button onclick="switchMainTab('foryou'); filterCategory('ALL');" class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold">Ver Todas em "Para Você"</button>
-        </div>
-      `;
-    }
-
+    function toggleSearchModal() { const m = document.getElementById('search-modal'); m.classList.toggle('hidden'); if(!m.classList.contains('hidden')) document.getElementById('search-input').focus(); }
+    function toggleTopicsModal() { document.getElementById('topics-modal').classList.toggle('hidden'); }
+    function showEmptyState(msg) { feedContainer.innerHTML = `<div class="h-screen w-full flex flex-col justify-center items-center p-6 text-center"><i class="fa-solid fa-folder-open text-4xl text-gray-600 mb-3"></i><h3 class="text-sm font-bold text-gray-300">${escapeHtml(msg)}</h3><button onclick="switchMainTab('foryou'); filterCategory('ALL');" class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold">Ver Todas em "Para Você"</button></div>`; }
+    
     function setupKeyboardNav() {
       window.addEventListener('keydown', (e) => {
-        if (document.activeElement.tagName === 'INPUT') return;
-        if (!document.getElementById('deepdive-modal').classList.contains('hidden')) return;
-
-        if (e.key === 'ArrowDown') {
-          feedContainer.scrollBy({ top: window.innerHeight, behavior: 'smooth' });
-        } else if (e.key === 'ArrowUp') {
-          feedContainer.scrollBy({ top: -window.innerHeight, behavior: 'smooth' });
-        }
+        if (document.activeElement.tagName === 'INPUT' || !document.getElementById('deepdive-modal').classList.contains('hidden')) return;
+        if (e.key === 'ArrowDown') feedContainer.scrollBy({ top: window.innerHeight, behavior: 'smooth' });
+        else if (e.key === 'ArrowUp') feedContainer.scrollBy({ top: -window.innerHeight, behavior: 'smooth' });
       });
-
       window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-          closeDeepDive();
-          closeProfileModal();
-          closeCommentsModal();
+          closeDeepDive(); closeProfileModal(); closeCommentsModal();
           if (!document.getElementById('search-modal').classList.contains('hidden')) toggleSearchModal();
           if (!document.getElementById('topics-modal').classList.contains('hidden')) toggleTopicsModal();
         }

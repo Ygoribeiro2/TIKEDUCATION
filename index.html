@@ -17,10 +17,15 @@
       -webkit-tap-highlight-color: transparent;
     }
 
-    body {
-      background-color: #000;
-      color: #fff;
+    html, body {
       margin: 0;
+      padding: 0;
+      background: #000;
+      color: #fff;
+      height: 100%;
+    }
+
+    body {
       overflow: hidden;
     }
 
@@ -46,6 +51,17 @@
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255, 255, 255, 0.2);
     }
+
+    .empty-state { 
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      text-align: center;
+      padding: 24px;
+    }
   </style>
 </head>
 <body class="select-none">
@@ -57,7 +73,7 @@
   <main id="feed-container" class="snap-container hide-scrollbar" aria-live="polite">
     <div id="loading-screen" class="h-screen w-full flex flex-col justify-center items-center">
       <i class="fa-solid fa-circle-notch fa-spin text-4xl text-indigo-500 mb-4" aria-hidden="true"></i>
-      <p class="text-gray-400 font-semibold text-sm">A procurar as últimas notícias...</p>
+      <p id="loading-text" class="text-gray-400 font-semibold text-sm">A procurar as últimas notícias...</p>
     </div>
   </main>
 
@@ -73,33 +89,32 @@
     let isFetching = false;
     let hasMoreNews = true;
     let observer;
+    let lastFetchFailed = false;
 
     const feedContainer = document.getElementById('feed-container');
     const infiniteLoader = document.getElementById('infinite-loader');
+    const loadingText = document.getElementById('loading-text');
+
+    function setLoadingText(message) {
+      if (loadingText) loadingText.textContent = message;
+    }
 
     function safeText(value, fallback = '') {
-      if (value === null || value === undefined || value === 'None') {
-        return fallback;
-      }
-
+      if (value === null || value === undefined || value === 'None') return fallback;
       const text = String(value).trim();
       return text || fallback;
     }
 
     function safeUrl(value, fallback = '#') {
       const text = safeText(value, fallback);
-      if (!/^https?:\/\//i.test(text)) {
-        return fallback;
-      }
+      if (!/^https?:\/\//i.test(text)) return fallback;
       return text;
     }
 
     function formatDate(dateValue) {
       if (!dateValue) return 'Recente';
-
       const date = new Date(dateValue);
       if (Number.isNaN(date.getTime())) return 'Recente';
-
       return date.toLocaleDateString('pt-BR', {
         day: '2-digit',
         month: '2-digit',
@@ -121,42 +136,66 @@
       return categories.length ? safeText(categories[0], 'Notícia') : 'Notícia';
     }
 
+    async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const response = await fetch(url, {
+          ...options,
+          signal: controller.signal
+        });
+        return response;
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    async function parseJsonResponse(response) {
+      const text = await response.text();
+      if (!text) return null;
+
+      try {
+        return JSON.parse(text);
+      } catch (error) {
+        console.warn('Resposta da API não era JSON válido:', text.slice(0, 200));
+        return null;
+      }
+    }
+
     async function fetchCurrentsAPI(page) {
-      const apiUrl = `https://api.currentsapi.services/v1/latest-news?language=pt&page=${page}&apiKey=${CURRENTS_API_KEY}`;
+      const directUrl = `https://api.currentsapi.services/v1/latest-news?language=pt&page=${page}&apiKey=${CURRENTS_API_KEY}`;
       const attempts = [
         {
-          name: 'allorigins-get',
-          url: `https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}`,
-          parse: async (response) => {
-            const raw = await response.json();
-            if (!raw || !raw.contents) return null;
-            return JSON.parse(raw.contents);
-          }
+          name: 'direct-api',
+          url: directUrl,
+          builder: () => fetchWithTimeout(directUrl, { headers: { Accept: 'application/json' } }, 12000)
         },
         {
           name: 'allorigins-raw',
-          url: `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`,
-          parse: async (response) => response.json()
+          url: `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`,
+          builder: () => fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`, { headers: { Accept: 'application/json' } }, 15000)
         },
         {
-          name: 'direct-api',
-          url: apiUrl,
-          parse: async (response) => response.json()
+          name: 'allorigins-get',
+          url: `https://api.allorigins.win/get?url=${encodeURIComponent(directUrl)}`,
+          builder: () => fetchWithTimeout(`https://api.allorigins.win/get?url=${encodeURIComponent(directUrl)}`, { headers: { Accept: 'application/json' } }, 15000)
         }
       ];
 
       for (const attempt of attempts) {
         try {
-          const response = await fetch(attempt.url, {
-            headers: { 'Accept': 'application/json' }
-          });
-
-          if (!response.ok) {
-            console.warn(`Falha em ${attempt.name}: ${response.status}`);
+          const response = await attempt.builder();
+          if (!response || !response.ok) {
+            console.warn(`Tentativa falhou (${attempt.name}):`, response ? response.status : 'sem resposta');
             continue;
           }
 
-          const data = await attempt.parse(response);
+          let data = await parseJsonResponse(response);
+
+          if (attempt.name === 'allorigins-get' && data && data.contents) {
+            data = JSON.parse(data.contents);
+          }
 
           if (data && data.status === 'ok' && Array.isArray(data.news)) {
             return data.news;
@@ -167,10 +206,11 @@
           }
 
           if (data && data.error) {
-            throw new Error(data.error.message || 'API retornou erro');
+            console.warn(`API respondeu erro em ${attempt.name}:`, data.error);
+            continue;
           }
         } catch (error) {
-          console.warn(`Erro em ${attempt.name}:`, error.message || error);
+          console.warn(`Erro ao tentar ${attempt.name}:`, error.message || error);
         }
       }
 
@@ -179,11 +219,30 @@
 
     function showEmptyState(message = 'Nenhuma notícia encontrada no momento.') {
       feedContainer.innerHTML = `
-        <div class="h-screen flex flex-col items-center justify-center px-6 text-center">
-          <i class="fa-solid fa-newspaper text-3xl text-gray-500 mb-4" aria-hidden="true"></i>
-          <p class="text-gray-400 text-base font-semibold">${escapeHtml(message)}</p>
+        <div class="empty-state">
+          <i class="fa-solid fa-newspaper text-3xl text-gray-500" aria-hidden="true"></i>
+          <p class="text-gray-400 text-base font-semibold max-w-md">${escapeHtml(message)}</p>
+          <button id="retry-button" class="px-5 py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm shadow-lg active:scale-95">
+            Tentar novamente
+          </button>
         </div>
       `;
+
+      const retryButton = document.getElementById('retry-button');
+      if (retryButton) {
+        retryButton.addEventListener('click', () => {
+          currentPage = 1;
+          hasMoreNews = true;
+          lastFetchFailed = false;
+          feedContainer.innerHTML = `
+            <div id="loading-screen" class="h-screen w-full flex flex-col justify-center items-center">
+              <i class="fa-solid fa-circle-notch fa-spin text-4xl text-indigo-500 mb-4" aria-hidden="true"></i>
+              <p id="loading-text" class="text-gray-400 font-semibold text-sm">Tentando novamente...</p>
+            </div>
+          `;
+          loadNewsPage(1);
+        });
+      }
     }
 
     function createNewsCard(news) {
@@ -296,6 +355,8 @@
         feedContainer.appendChild(infiniteLoader);
       }
 
+      setLoadingText(page === 1 ? 'A procurar as últimas notícias...' : 'Carregando mais notícias...');
+
       const newsList = await fetchCurrentsAPI(page);
 
       const loadingScreen = document.getElementById('loading-screen');
@@ -305,15 +366,20 @@
 
       if (newsList.length === 0) {
         hasMoreNews = false;
+        lastFetchFailed = true;
 
         if (page === 1) {
-          showEmptyState('Nenhuma notícia encontrada. Verifique a API ou a conexão com a internet.');
+          showEmptyState('Não foi possível carregar as notícias no momento. A API pode estar lenta ou bloqueada.');
+        } else {
+          showEmptyState('Não há mais notícias disponíveis no momento.');
         }
 
         isFetching = false;
         infiniteLoader.classList.add('hidden');
         return;
       }
+
+      lastFetchFailed = false;
 
       newsList.forEach((news, index) => {
         if (!news || !news.title) return;
@@ -340,10 +406,9 @@
 
       observer = new IntersectionObserver((entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting && !isFetching && hasMoreNews) {
+          if (entry.isIntersecting && !isFetching && hasMoreNews && !lastFetchFailed) {
             entry.target.classList.remove('last-card-observer');
             observer.unobserve(entry.target);
-
             currentPage += 1;
             loadNewsPage(currentPage);
           }
@@ -370,9 +435,7 @@
     async function shareLink(url) {
       try {
         const safe = safeUrl(url, '');
-        if (!safe || safe === '#') {
-          return;
-        }
+        if (!safe || safe === '#') return;
 
         if (navigator.share) {
           await navigator.share({
@@ -398,7 +461,9 @@
         alert('Link copiado para a área de transferência!');
       } catch (error) {
         console.warn('Erro ao compartilhar link:', error);
-        window.open(url, '_blank', 'noopener,noreferrer');
+        if (url && url !== '#') {
+          window.open(url, '_blank', 'noopener,noreferrer');
+        }
       }
     }
 

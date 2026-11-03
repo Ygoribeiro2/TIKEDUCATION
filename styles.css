@@ -6,7 +6,6 @@
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
-  user-select: none;
 }
 
 html,
@@ -25,6 +24,16 @@ body {
     radial-gradient(circle at top, rgba(99, 102, 241, 0.18), transparent 22%),
     radial-gradient(circle at bottom right, rgba(239, 68, 68, 0.12), transparent 28%),
     var(--bg);
+}
+
+button,
+a {
+  user-select: none;
+}
+
+.card-snap,
+.card-snap * {
+  user-select: text;
 }
 
 .feed-container {
@@ -158,6 +167,29 @@ body {
   text-align: center;
 }
 
+.empty-state-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
+  max-width: 22rem;
+  padding: 1.5rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.25rem;
+  background: rgba(15, 23, 42, 0.7);
+}
+
+.empty-state-btn {
+  margin-top: 0.5rem;
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  border-radius: 9999px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #fff;
+  padding: 0.7rem 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .loader {
   position: fixed;
   z-index: 30;
@@ -189,3 +221,4 @@ body {
     padding-left: 1.5rem;
   }
 }
+

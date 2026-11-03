@@ -15,6 +15,8 @@ const categories = [
   { id: 'environment', label: 'Ambiente' }
 ];
 
+const categoryLabels = Object.fromEntries(categories.map((category) => [category.id, category.label]));
+
 const fallbackDatabase = {
   news: [
     { title: 'Nova onda de energia limpa desafia mercado global', text: 'Investidores e cidades aceleram o uso de tecnologias mais eficientes para reduzir perdas e aumentar a capacidade de produção.', tag: 'NOTÍCIAS', image: 'https://images.unsplash.com/photo-1497435334941-8c899ee9e8e9?auto=format&fit=crop&w=1200&q=80' },
@@ -202,7 +204,8 @@ function selectCategory(category) {
   }
 
   const categoryNews = state.news.filter((item) => item.category === category);
-  renderCards(categoryNews.length ? categoryNews : getLocalCards(category));
+  const cards = categoryNews.length ? categoryNews : getLocalCards(category);
+  renderCards(cards.length ? cards : []);
 }
 
 async function loadMoreCards() {
@@ -248,13 +251,18 @@ function renderCards(cards) {
   }
 
   if (!cards.length) {
+    const label = categoryLabels[state.category] || 'categoria';
     feed.innerHTML = `
       <div class="empty-state">
-        <div>
+        <div class="empty-state-panel">
           <i class="fa-solid fa-newspaper text-3xl text-gray-500 mb-3 block" aria-hidden="true"></i>
-          <p class="text-base font-semibold text-gray-300">Nenhuma novidade encontrada nesta categoria.</p>
+          <p class="text-base font-semibold text-gray-300">Nenhuma novidade encontrada em ${label.toLowerCase()} no momento.</p>
+          <button type="button" class="empty-state-btn" data-reset-category="all">Ver para você</button>
         </div>
       </div>`;
+
+    const resetButton = feed.querySelector('[data-reset-category]');
+    resetButton?.addEventListener('click', () => selectCategory('all'));
     return;
   }
 
@@ -328,3 +336,4 @@ function init() {
 }
 
 init();
+

@@ -1,8 +1,9 @@
 // Currents API keys are public when used directly in browser code. For production,
 // proxy this request through a backend and rotate any key previously committed.
 const CURRENTS_API_KEY = 'sI4_MxTyZXaZZCfOE2yCfVUVssmI6BiCttH4b1wEQc7Mk_86';
-const DEFAULT_BG = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1400&q=80';
+const DEFAULT_BG = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&q=80';
 const REQUEST_TIMEOUT_MS = 10000;
+const REACTIONS_STORAGE_KEY = 'globalpulse:reactions:v1';
 
 const categories = [
   { id: 'all', label: 'Para você' },
@@ -61,7 +62,8 @@ const state = {
   loading: false,
   hasMore: true,
   news: [],
-  observer: null
+  observer: null,
+  reactions: { liked: new Set(), saved: new Set() }
 };
 
 const feed = document.getElementById('feed-container');
@@ -87,6 +89,34 @@ function safeUrl(value, fallback = '#') {
   return /^https?:\/\//i.test(text) ? text : fallback;
 }
 
+function buildReactionKey({ title, category, url = '' }) {
+  return `${safeText(category, '').toLowerCase()}|${safeText(title, '').toLowerCase()}|${safeUrl(url, '')}`;
+}
+
+function loadReactions() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(REACTIONS_STORAGE_KEY) || '{"liked":[],"saved":[]}');
+    return {
+      liked: new Set(Array.isArray(stored.liked) ? stored.liked : []),
+      saved: new Set(Array.isArray(stored.saved) ? stored.saved : [])
+    };
+  } catch (error) {
+    console.warn('Não foi possível restaurar curtidas e favoritos.', error);
+    return { liked: new Set(), saved: new Set() };
+  }
+}
+
+function saveReactions() {
+  try {
+    localStorage.setItem(REACTIONS_STORAGE_KEY, JSON.stringify({
+      liked: [...state.reactions.liked],
+      saved: [...state.reactions.saved]
+    }));
+  } catch (error) {
+    console.warn('Não foi possível salvar curtidas e favoritos.', error);
+  }
+}
+
 function getCategorySlug(value) {
   const text = safeText(value, '').toLowerCase();
   if (!text) return 'news';
@@ -103,14 +133,17 @@ function normalizeNewsItem(item) {
   if (!item || !item.title) return null;
   const rawCategory = Array.isArray(item.category) ? item.category[0] : item.category;
   const category = getCategorySlug(rawCategory || 'news');
+  const title = safeText(item.title, 'Notícia relevante');
+  const url = safeUrl(item.url, '');
 
   return {
     id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    title: safeText(item.title, 'Notícia relevante'),
+    title,
     text: safeText(item.description || item.summary, 'Confira mais detalhes sobre esta novidade.'),
     tag: safeText(rawCategory, category === 'news' ? 'NOTÍCIAS' : category.toUpperCase()).toUpperCase(),
     category,
-    url: safeUrl(item.url, '#'),
+    reactionKey: buildReactionKey({ title, category, url }),
+    url,
     image: safeUrl(item.image, DEFAULT_BG),
     author: safeText(item.author, 'Agência GlobalPulse'),
     published: item.published || new Date().toISOString()
@@ -244,6 +277,21 @@ function renderFeed() {
   renderCards(visibleNews);
 }
 
+function applyReactionState(button, active, type) {
+  button.classList.toggle('active', active);
+  button.setAttribute('aria-pressed', String(active));
+  button.setAttribute('aria-label', type === 'like'
+    ? (active ? 'Remover curtida' : 'Curtir notícia')
+    : (active ? 'Remover dos favoritos' : 'Salvar notícia'));
+
+  const icon = button.querySelector('i');
+  const color = type === 'like' ? 'text-red-400' : 'text-yellow-400';
+  if (icon) {
+    icon.classList.toggle(color, active);
+    icon.classList.toggle('text-white', !active);
+  }
+}
+
 function renderCards(cards) {
   if (state.observer) {
     state.observer.disconnect();
@@ -272,8 +320,10 @@ function renderCards(cards) {
       ? '<span class="action-btn opacity-50" aria-label="Link da matéria indisponível"><i class="fa-solid fa-link text-lg"></i></span>'
       : `<a href="${escapeHtml(articleUrl)}" target="_blank" rel="noopener noreferrer" class="action-btn" aria-label="Ler matéria"><i class="fa-solid fa-arrow-up-right-from-square text-lg"></i></a>`;
 
+    const reactionKey = card.reactionKey || buildReactionKey({ title: card.title, category: card.category, url: card.url });
+
     return `
-      <section class="card-snap" data-id="${escapeHtml(card.id)}" data-category="${escapeHtml(card.category)}">
+      <section class="card-snap" data-id="${escapeHtml(card.id)}" data-category="${escapeHtml(card.category)}" data-reaction-key="${escapeHtml(reactionKey)}">
         <img class="card-bg" src="${escapeHtml(card.image)}" alt="" loading="lazy" onerror="this.onerror=null;this.src='${DEFAULT_BG}'" />
         <div class="card-overlay" aria-hidden="true"></div>
         <div class="absolute right-4 bottom-24 z-20 flex flex-col items-center gap-5">
@@ -305,13 +355,25 @@ function renderCards(cards) {
 
 function bindCardEvents() {
   feed.querySelectorAll('.like-btn, .save-btn').forEach((button) => {
+    const card = button.closest('.card-snap');
+    const reactionKey = card?.dataset.reactionKey || '';
+    const isLike = button.classList.contains('like-btn');
+    const isActive = isLike ? state.reactions.liked.has(reactionKey) : state.reactions.saved.has(reactionKey);
+
+    applyReactionState(button, isActive, isLike ? 'like' : 'save');
+
     button.addEventListener('click', () => {
-      const active = button.classList.toggle('active');
-      button.setAttribute('aria-pressed', String(active));
-      const icon = button.querySelector('i');
-      const color = button.classList.contains('like-btn') ? 'text-red-400' : 'text-yellow-400';
-      icon.classList.toggle(color, active);
-      icon.classList.toggle('text-white', !active);
+      const activeKey = button.closest('.card-snap')?.dataset.reactionKey || '';
+      const collection = isLike ? state.reactions.liked : state.reactions.saved;
+
+      if (collection.has(activeKey)) {
+        collection.delete(activeKey);
+      } else {
+        collection.add(activeKey);
+      }
+
+      saveReactions();
+      applyReactionState(button, collection.has(activeKey), isLike ? 'like' : 'save');
     });
   });
 }
@@ -328,6 +390,7 @@ function observeLastCard() {
 }
 
 function init() {
+  state.reactions = loadReactions();
   renderCategoryBar();
   loadMoreCards();
   feed.addEventListener('scroll', () => {

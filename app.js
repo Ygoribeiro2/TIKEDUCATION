@@ -58,12 +58,11 @@ const state = {
   news: [],
   buffer: [],
   seen: new Set(),
-  observer: null,
-  controller: null,
   requestId: 0,
-  reactions: { liked: new Set(), saved: new Set() },
-  initialExamples: true,
-  hasScrolled: false
+  controller: null,
+  loadRequested: false,
+  hasScrolled: false,
+  reactions: { liked: new Set(), saved: new Set() }
 };
 const feed = document.getElementById('feed-container');
 const categoryBar = document.getElementById('category-bar');
@@ -75,7 +74,7 @@ function escapeHtml(value) {
 function cleanText(value, fallback = '') {
   return value == null ? fallback : String(value).trim() || fallback;
 }
-function reactionKey(title, category) {
+function makeReactionKey(title, category) {
   return `${category}|${cleanText(title).toLocaleLowerCase('pt-BR')}`;
 }
 function loadReactions() {
@@ -97,6 +96,13 @@ function persistReactions() {
     console.warn('Não foi possível salvar as reações neste navegador.', error);
   }
 }
+function setLoading(loading, message = 'Buscando novidades...') {
+  loader.classList.toggle('hidden', !loading);
+  loader.setAttribute('aria-hidden', String(!loading));
+  feed.setAttribute('aria-busy', String(loading));
+  const label = loader.querySelector('span');
+  if (label) label.textContent = message;
+}
 function renderCategoryBar() {
   categoryBar.replaceChildren();
   categories.forEach((category) => {
@@ -109,27 +115,16 @@ function renderCategoryBar() {
     categoryBar.appendChild(button);
   });
 }
-function setLoading(loading, message = 'Buscando novidades...') {
-  state.loading = loading;
-  loader.classList.toggle('hidden', !loading);
-  loader.setAttribute('aria-hidden', String(!loading));
-  feed.setAttribute('aria-busy', String(loading));
-  const label = loader.querySelector('span');
-  if (label) label.textContent = message;
-}
 function makeExampleCards(category) {
   const selected = category === 'all' ? 'news' : category;
   return (examples[selected] || examples.news).map(([title, text], index) => ({
     id: `example-${selected}-${index}`,
-    reactionKey: reactionKey(title, selected),
-    title,
-    text,
-    category: selected,
+    reactionKey: makeReactionKey(title, selected),
+    title, text, category: selected,
     tag: `${categoryLabels[selected]} • EXEMPLO`,
     author: 'Conteúdo de demonstração',
     published: new Date().toISOString(),
-    url: '#',
-    image: DEFAULT_BG
+    url: '#', image: DEFAULT_BG
   }));
 }
 function normalizeGenerated(item, index, category, batch) {
@@ -140,21 +135,17 @@ function normalizeGenerated(item, index, category, batch) {
   const selected = category === 'all' ? 'news' : category;
   return {
     id: `gemini-${category}-${batch}-${index}-${title}`,
-    reactionKey: reactionKey(title, selected),
-    title,
-    text,
-    category: selected,
+    reactionKey: makeReactionKey(title, selected),
+    title, text, category: selected,
     tag: `${categoryLabels[category] || 'Notícias'} • IA`,
     author: 'Gemini IA • conteúdo gerado',
     published: new Date().toISOString(),
-    url: '#',
-    image: DEFAULT_BG
+    url: '#', image: DEFAULT_BG
   };
 }
 async function requestBatch(category, batch, signal) {
   const response = await fetch(`/.netlify/functions/news?category=${encodeURIComponent(category)}&batch=${batch}`, {
-    headers: { Accept: 'application/json' },
-    signal
+    headers: { Accept: 'application/json' }, signal
   });
   if (!response.ok) {
     const details = await response.json().catch(() => ({}));
@@ -176,25 +167,30 @@ function selectCategory(category) {
   state.news = makeExampleCards(category);
   state.buffer = [];
   state.seen = new Set(state.news.map((item) => item.reactionKey));
-  state.initialExamples = true;
+  state.loadRequested = false;
   state.hasScrolled = false;
   feed.replaceChildren();
   feed.scrollTo({ top: 0, behavior: 'instant' });
   renderCategoryBar();
   appendCards(state.news);
-  // Generate real Gemini content in the background without leaving the feed blank.
   loadGeneratedBatch({ initial: true, showLoader: true });
 }
-async function loadGeneratedBatch({ initial = false, showLoader = false } = {}) {
-  if (state.loading) return;
+
+// A successful request either replaces the initial examples, fills the preload buffer,
+// or appends a visible batch. It never starts another request in a tight loop.
+async function loadGeneratedBatch({ initial = false, prefetch = false, showLoader = false } = {}) {
+  if (state.loading) {
+    if (!prefetch) state.loadRequested = true;
+    return;
+  }
   const requestId = state.requestId;
   const category = state.category;
   const batch = state.batch + 1;
   const controller = new AbortController();
   state.controller = controller;
-  const timeout = window.setTimeout(() => controller.abort(), 20000);
-  if (showLoader) setLoading(true, initial ? 'Gerando novidades...' : 'Buscando novidades...');
   state.loading = true;
+  const timeout = window.setTimeout(() => controller.abort(), 25000);
+  if (showLoader) setLoading(true, initial ? 'Gerando novidades...' : 'Buscando novidades...');
 
   try {
     const generated = await requestBatch(category, batch, controller.signal);
@@ -202,25 +198,30 @@ async function loadGeneratedBatch({ initial = false, showLoader = false } = {}) 
     const articles = generated
       .map((item, index) => normalizeGenerated(item, index, category, batch))
       .filter((item) => item && !state.seen.has(item.reactionKey));
-    if (!articles.length) throw new Error('O Gemini repetiu as notícias anteriores.');
+    if (articles.length !== BATCH_SIZE) throw new Error('O Gemini retornou notícias repetidas ou incompletas.');
     articles.forEach((item) => state.seen.add(item.reactionKey));
     state.batch = batch;
 
-    if (initial && state.initialExamples && !state.hasScrolled) {
+    if (initial && !state.hasScrolled) {
       state.news = articles;
-      state.initialExamples = false;
       feed.replaceChildren();
       appendCards(articles);
-    } else {
+    } else if (prefetch) {
       state.buffer = articles;
-      if (!initial) appendBufferedBatch();
+      if (state.loadRequested) {
+        state.loadRequested = false;
+        appendBufferedBatch();
+      }
+    } else {
+      state.news.push(...articles);
+      appendCards(articles);
     }
   } catch (error) {
     if (requestId === state.requestId && error.name !== 'AbortError') {
       console.error('Erro ao carregar notícias do Gemini:', error);
       showNotice(initial
-        ? 'Não foi possível conectar ao Gemini. Os exemplos já estão disponíveis; confira a configuração da API.'
-        : 'Não foi possível preparar mais notícias. Toque para tentar novamente.', true);
+        ? 'Não foi possível conectar ao Gemini. Os exemplos continuam disponíveis; confira a configuração da API.'
+        : 'Não foi possível carregar mais novidades. Tente novamente.', true);
     }
   } finally {
     window.clearTimeout(timeout);
@@ -228,10 +229,12 @@ async function loadGeneratedBatch({ initial = false, showLoader = false } = {}) 
       state.loading = false;
       state.controller = null;
       if (showLoader) setLoading(false);
-      updateObserver();
-      // Always prepare the next three before the reader reaches the end.
-      if (state.batch > 0 && !state.buffer.length) {
-        queueMicrotask(() => loadGeneratedBatch({ showLoader: false }));
+      // Only prefetch one batch, hold it in memory, and wait for scrolling to consume it.
+      if (state.batch > 0 && !state.buffer.length && !state.loadRequested) {
+        queueMicrotask(() => loadGeneratedBatch({ prefetch: true }));
+      } else if (state.loadRequested && !state.buffer.length && !initial && !prefetch) {
+        state.loadRequested = false;
+        queueMicrotask(() => loadGeneratedBatch({ showLoader: true }));
       }
     }
   }
@@ -242,6 +245,8 @@ function appendBufferedBatch() {
   state.buffer = [];
   state.news.push(...batch);
   appendCards(batch);
+  // Fetch one next batch into the buffer; do not append it until the next scroll.
+  if (!state.loading) queueMicrotask(() => loadGeneratedBatch({ prefetch: true }));
   return true;
 }
 function showNotice(message, retry) {
@@ -290,7 +295,6 @@ function appendCards(cards) {
   }).join('');
   feed.insertAdjacentHTML('beforeend', markup);
   bindCardEvents();
-  updateObserver();
 }
 function updateReactionButton(button, active, isLike) {
   button.classList.toggle('active', active);
@@ -320,23 +324,15 @@ function bindCardEvents() {
     });
   });
 }
-function updateObserver() {
-  state.observer?.disconnect();
-  state.observer = null;
-  if (!('IntersectionObserver' in window) || state.loading) return;
+function requestMoreIfNearEnd() {
   const cards = feed.querySelectorAll('.card-snap');
   if (!cards.length) return;
-  state.observer = new IntersectionObserver((entries) => {
-    if (entries.some((entry) => entry.isIntersecting)) onApproachingEnd();
-  }, { root: feed, rootMargin: '100% 0px', threshold: 0 });
-  state.observer.observe(cards[cards.length - 1]);
-}
-function onApproachingEnd() {
-  if (state.loading) return;
+  const currentIndex = Math.floor(feed.scrollTop / Math.max(feed.clientHeight, 1));
+  if (cards.length - currentIndex > BATCH_SIZE) return;
   if (state.buffer.length) {
     appendBufferedBatch();
-    // Start the next Gemini request early; it fills the buffer, not the visible feed.
-    loadGeneratedBatch({ showLoader: false });
+  } else if (state.loading) {
+    state.loadRequested = true;
   } else {
     loadGeneratedBatch({ showLoader: true });
   }
@@ -344,17 +340,13 @@ function onApproachingEnd() {
 function init() {
   state.reactions = loadReactions();
   renderCategoryBar();
-  // Paint three cards synchronously, so a slow or unavailable API never yields a blank screen.
   state.news = makeExampleCards(state.category);
   state.seen = new Set(state.news.map((item) => item.reactionKey));
   appendCards(state.news);
   loadGeneratedBatch({ initial: true, showLoader: true });
   feed.addEventListener('scroll', () => {
     if (feed.scrollTop > 0) state.hasScrolled = true;
-    const cards = feed.querySelectorAll('.card-snap');
-    if (!cards.length || state.loading) return;
-    const currentIndex = Math.floor(feed.scrollTop / Math.max(feed.clientHeight, 1));
-    if (cards.length - currentIndex <= BATCH_SIZE) onApproachingEnd();
+    requestMoreIfNearEnd();
   }, { passive: true });
 }
 init();

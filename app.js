@@ -1,6 +1,7 @@
 const DEFAULT_BG = 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1400&q=80';
 const REACTIONS_STORAGE_KEY = 'globalpulse:reactions:v1';
 const BATCH_SIZE = 3;
+
 const categories = [
   { id: 'all', label: 'Para você' },
   { id: 'news', label: 'Notícias' },
@@ -12,15 +13,15 @@ const categories = [
   { id: 'environment', label: 'Ambiente' }
 ];
 const categoryLabels = Object.fromEntries(categories.map(({ id, label }) => [id, label]));
-const fallbackDatabase = {
+const examples = {
   news: [
     ['Energia limpa ganha espaço nas cidades', 'Projetos solares e eólicos ajudam comunidades a diversificar suas fontes de energia e reduzir impactos ambientais.'],
     ['Novas rotas inteligentes transformam a mobilidade', 'Dados de trânsito em tempo real ajudam a planejar deslocamentos e a reduzir congestionamentos.'],
     ['Educação digital amplia formas de aprender', 'Aulas interativas e conteúdos em formatos curtos podem complementar o estudo e facilitar a revisão.']
   ],
   tech: [
-    ['Inteligência artificial entra na rotina de trabalho', 'Ferramentas de IA estão sendo usadas para organizar informações e automatizar tarefas repetitivas.'],
-    ['Computação quântica busca reduzir erros', 'Pesquisadores estudam formas de tornar os qubits mais estáveis para resolver problemas especializados.'],
+    ['Inteligência artificial entra na rotina de trabalho', 'Ferramentas de IA podem organizar informações e automatizar algumas tarefas repetitivas.'],
+    ['Computação quântica busca reduzir erros', 'Pesquisadores estudam formas de tornar os qubits mais estáveis para problemas especializados.'],
     ['Dispositivos conectados ampliam a automação', 'Sensores e redes permitem que aparelhos troquem informações e respondam a mudanças no ambiente.']
   ],
   history: [
@@ -40,8 +41,8 @@ const fallbackDatabase = {
   ],
   health: [
     ['Rotinas de sono favorecem o bem-estar', 'Horários regulares e um ambiente tranquilo podem contribuir para uma boa qualidade de descanso.'],
-    ['Movimento diário traz benefícios à saúde', 'Caminhadas e outras atividades adequadas à condição de cada pessoa ajudam a reduzir o sedentarismo.'],
-    ['Alimentação variada ajuda a compor uma rotina equilibrada', 'Diferentes grupos de alimentos fornecem nutrientes importantes para o funcionamento do organismo.']
+    ['Movimento diário traz benefícios à saúde', 'Atividades adequadas à condição de cada pessoa ajudam a reduzir o sedentarismo.'],
+    ['Alimentação variada ajuda a compor uma rotina equilibrada', 'Diferentes grupos de alimentos fornecem nutrientes importantes para o organismo.']
   ],
   environment: [
     ['Árvores urbanas ajudam a amenizar o calor', 'A sombra e a evapotranspiração das árvores podem reduzir temperaturas em áreas construídas.'],
@@ -54,14 +55,15 @@ const state = {
   category: 'all',
   batch: 0,
   loading: false,
-  hasMore: true,
-  prefetchedInitial: false,
   news: [],
+  buffer: [],
   seen: new Set(),
   observer: null,
   controller: null,
   requestId: 0,
-  reactions: { liked: new Set(), saved: new Set() }
+  reactions: { liked: new Set(), saved: new Set() },
+  initialExamples: true,
+  hasScrolled: false
 };
 const feed = document.getElementById('feed-container');
 const categoryBar = document.getElementById('category-bar');
@@ -70,16 +72,11 @@ const loader = document.getElementById('loader');
 function escapeHtml(value) {
   return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
-function safeText(value, fallback = '') {
-  if (value === null || value === undefined) return fallback;
-  return String(value).trim() || fallback;
+function cleanText(value, fallback = '') {
+  return value == null ? fallback : String(value).trim() || fallback;
 }
-function safeUrl(value, fallback = '#') {
-  const text = safeText(value, fallback);
-  return /^https?:\/\//i.test(text) ? text : fallback;
-}
-function makeReactionKey(title, category) {
-  return `${category}|${safeText(title).toLocaleLowerCase('pt-BR')}`;
+function reactionKey(title, category) {
+  return `${category}|${cleanText(title).toLocaleLowerCase('pt-BR')}`;
 }
 function loadReactions() {
   try {
@@ -95,21 +92,10 @@ function loadReactions() {
 }
 function persistReactions() {
   try {
-    localStorage.setItem(REACTIONS_STORAGE_KEY, JSON.stringify({
-      liked: [...state.reactions.liked],
-      saved: [...state.reactions.saved]
-    }));
+    localStorage.setItem(REACTIONS_STORAGE_KEY, JSON.stringify({ liked: [...state.reactions.liked], saved: [...state.reactions.saved] }));
   } catch (error) {
     console.warn('Não foi possível salvar as reações neste navegador.', error);
   }
-}
-function setLoading(loading, message = 'Buscando novidades...') {
-  state.loading = loading;
-  loader.classList.toggle('hidden', !loading);
-  loader.setAttribute('aria-hidden', String(!loading));
-  feed.setAttribute('aria-busy', String(loading));
-  const label = loader.querySelector('span');
-  if (label) label.textContent = message;
 }
 function renderCategoryBar() {
   categoryBar.replaceChildren();
@@ -123,12 +109,19 @@ function renderCategoryBar() {
     categoryBar.appendChild(button);
   });
 }
-function fallbackCards(category, batch) {
+function setLoading(loading, message = 'Buscando novidades...') {
+  state.loading = loading;
+  loader.classList.toggle('hidden', !loading);
+  loader.setAttribute('aria-hidden', String(!loading));
+  feed.setAttribute('aria-busy', String(loading));
+  const label = loader.querySelector('span');
+  if (label) label.textContent = message;
+}
+function makeExampleCards(category) {
   const selected = category === 'all' ? 'news' : category;
-  const examples = fallbackDatabase[selected] || fallbackDatabase.news;
-  return examples.map(([title, text], index) => ({
-    id: `fallback-${selected}-${batch}-${index}-${Date.now()}`,
-    reactionKey: makeReactionKey(title, selected),
+  return (examples[selected] || examples.news).map(([title, text], index) => ({
+    id: `example-${selected}-${index}`,
+    reactionKey: reactionKey(title, selected),
     title,
     text,
     category: selected,
@@ -139,18 +132,18 @@ function fallbackCards(category, batch) {
     image: DEFAULT_BG
   }));
 }
-function normalizeGeneratedItem(item, index, category, batch) {
+function normalizeGenerated(item, index, category, batch) {
   if (!item || typeof item.title !== 'string' || typeof item.description !== 'string') return null;
-  const title = safeText(item.title).slice(0, 140);
-  const text = safeText(item.description).slice(0, 500);
+  const title = cleanText(item.title).slice(0, 140);
+  const text = cleanText(item.description).slice(0, 500);
   if (!title || !text) return null;
-  const id = `${category}-${batch}-${index}-${title.toLocaleLowerCase('pt-BR')}`;
+  const selected = category === 'all' ? 'news' : category;
   return {
-    id,
-    reactionKey: makeReactionKey(title, category === 'all' ? 'news' : category),
+    id: `gemini-${category}-${batch}-${index}-${title}`,
+    reactionKey: reactionKey(title, selected),
     title,
     text,
-    category: category === 'all' ? 'news' : category,
+    category: selected,
     tag: `${categoryLabels[category] || 'Notícias'} • IA`,
     author: 'Gemini IA • conteúdo gerado',
     published: new Date().toISOString(),
@@ -165,77 +158,93 @@ async function requestBatch(category, batch, signal) {
   });
   if (!response.ok) {
     const details = await response.json().catch(() => ({}));
-    throw new Error(details.error || `Falha ao gerar notícias (HTTP ${response.status}).`);
+    throw new Error(details.error || `Não foi possível gerar as notícias (HTTP ${response.status}).`);
   }
   const result = await response.json();
-  if (!Array.isArray(result.articles)) throw new Error('A resposta do gerador veio em formato inválido.');
+  if (!Array.isArray(result.articles) || result.articles.length !== BATCH_SIZE) {
+    throw new Error('O gerador não retornou exatamente três notícias.');
+  }
   return result.articles;
 }
 function selectCategory(category) {
   if (!categories.some((item) => item.id === category) || category === state.category) return;
   state.controller?.abort();
   state.requestId += 1;
-  state.loading = false;
   state.category = category;
   state.batch = 0;
-  state.hasMore = true;
-  state.prefetchedInitial = false;
-  state.news = [];
-  state.seen.clear();
+  state.loading = false;
+  state.news = makeExampleCards(category);
+  state.buffer = [];
+  state.seen = new Set(state.news.map((item) => item.reactionKey));
+  state.initialExamples = true;
+  state.hasScrolled = false;
   feed.replaceChildren();
   feed.scrollTo({ top: 0, behavior: 'instant' });
   renderCategoryBar();
-  loadMoreCards();
+  appendCards(state.news);
+  // Generate real Gemini content in the background without leaving the feed blank.
+  loadGeneratedBatch({ initial: true, showLoader: true });
 }
-async function loadMoreCards() {
-  if (state.loading || !state.hasMore) return;
-  const category = state.category;
+async function loadGeneratedBatch({ initial = false, showLoader = false } = {}) {
+  if (state.loading) return;
   const requestId = state.requestId;
+  const category = state.category;
   const batch = state.batch + 1;
   const controller = new AbortController();
   state.controller = controller;
-  const timeout = window.setTimeout(() => controller.abort(), 25000);
-  setLoading(true, state.news.length ? 'Preparando mais 3 novidades...' : 'Gerando 3 novidades com Gemini...');
+  const timeout = window.setTimeout(() => controller.abort(), 20000);
+  if (showLoader) setLoading(true, initial ? 'Gerando novidades...' : 'Buscando novidades...');
+  state.loading = true;
 
   try {
     const generated = await requestBatch(category, batch, controller.signal);
     if (requestId !== state.requestId) return;
-    const items = generated
-      .map((item, index) => normalizeGeneratedItem(item, index, category, batch))
+    const articles = generated
+      .map((item, index) => normalizeGenerated(item, index, category, batch))
       .filter((item) => item && !state.seen.has(item.reactionKey));
-    if (!items.length) throw new Error('O Gemini não retornou notícias novas. Tente novamente.');
-    items.forEach((item) => state.seen.add(item.reactionKey));
+    if (!articles.length) throw new Error('O Gemini repetiu as notícias anteriores.');
+    articles.forEach((item) => state.seen.add(item.reactionKey));
     state.batch = batch;
-    state.news.push(...items);
-    appendCards(items);
-  } catch (error) {
-    if (requestId !== state.requestId || error.name === 'AbortError') return;
-    console.error('Erro ao carregar notícias:', error);
-    if (!state.news.length) {
-      const samples = fallbackCards(category, batch).filter((item) => !state.seen.has(item.reactionKey));
-      samples.forEach((item) => state.seen.add(item.reactionKey));
-      state.news.push(...samples);
-      appendCards(samples);
-      showFeedNotice('Não consegui conectar ao Gemini. Exibindo exemplos; configure GEMINI_API_KEY no Netlify e tente novamente.', true);
+
+    if (initial && state.initialExamples && !state.hasScrolled) {
+      state.news = articles;
+      state.initialExamples = false;
+      feed.replaceChildren();
+      appendCards(articles);
     } else {
-      showFeedNotice('Não foi possível carregar mais novidades. Toque para tentar novamente.', true);
+      state.buffer = articles;
+      if (!initial) appendBufferedBatch();
+    }
+  } catch (error) {
+    if (requestId === state.requestId && error.name !== 'AbortError') {
+      console.error('Erro ao carregar notícias do Gemini:', error);
+      showNotice(initial
+        ? 'Não foi possível conectar ao Gemini. Os exemplos já estão disponíveis; confira a configuração da API.'
+        : 'Não foi possível preparar mais notícias. Toque para tentar novamente.', true);
     }
   } finally {
     window.clearTimeout(timeout);
     if (requestId === state.requestId) {
       state.loading = false;
-      setLoading(false);
       state.controller = null;
+      if (showLoader) setLoading(false);
       updateObserver();
-      if (state.batch === 1 && !state.prefetchedInitial && state.news.length) {
-        state.prefetchedInitial = true;
-        // Prepare the next three cards before the first swipe reaches the end.
-        queueMicrotask(loadMoreCards);
+      // Always prepare the next three before the reader reaches the end.
+      if (state.batch > 0 && !state.buffer.length) {
+        queueMicrotask(() => loadGeneratedBatch({ showLoader: false }));
       }
     }
   }
 }
-function showFeedNotice(message, retry) {
+function appendBufferedBatch() {
+  if (!state.buffer.length) return false;
+  const batch = state.buffer;
+  state.buffer = [];
+  state.news.push(...batch);
+  appendCards(batch);
+  return true;
+}
+function showNotice(message, retry) {
   feed.querySelector('.feed-notice')?.remove();
   const notice = document.createElement('div');
   notice.className = 'feed-notice';
@@ -250,19 +259,19 @@ function showFeedNotice(message, retry) {
     button.textContent = 'Tentar novamente';
     button.addEventListener('click', () => {
       notice.remove();
-      state.hasMore = true;
-      loadMoreCards();
+      loadGeneratedBatch({ showLoader: true });
     });
     notice.appendChild(button);
   }
   feed.appendChild(notice);
 }
 function appendCards(cards) {
+  if (!cards.length) return;
+  feed.querySelector('.feed-notice')?.remove();
   const markup = cards.map((card) => {
-    const link = safeUrl(card.url, '#');
-    const linkMarkup = link === '#'
+    const linkMarkup = card.url === '#'
       ? '<span class="action-btn opacity-50" aria-label="Link da matéria indisponível"><i class="fa-solid fa-link text-lg" aria-hidden="true"></i></span>'
-      : `<a href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" class="action-btn" aria-label="Ler matéria"><i class="fa-solid fa-arrow-up-right-from-square text-lg" aria-hidden="true"></i></a>`;
+      : `<a href="${escapeHtml(card.url)}" target="_blank" rel="noopener noreferrer" class="action-btn" aria-label="Ler matéria"><i class="fa-solid fa-arrow-up-right-from-square text-lg" aria-hidden="true"></i></a>`;
     return `<section class="card-snap" data-id="${escapeHtml(card.id)}" data-category="${escapeHtml(card.category)}" data-reaction-key="${escapeHtml(card.reactionKey)}">
       <img class="card-bg" src="${escapeHtml(card.image)}" alt="" loading="lazy" onerror="this.onerror=null;this.src='${DEFAULT_BG}'" />
       <div class="card-overlay" aria-hidden="true"></div>
@@ -279,8 +288,6 @@ function appendCards(cards) {
       </div>
     </section>`;
   }).join('');
-  const notice = feed.querySelector('.feed-notice');
-  if (notice) notice.remove();
   feed.insertAdjacentHTML('beforeend', markup);
   bindCardEvents();
   updateObserver();
@@ -319,21 +326,35 @@ function updateObserver() {
   if (!('IntersectionObserver' in window) || state.loading) return;
   const cards = feed.querySelectorAll('.card-snap');
   if (!cards.length) return;
-  const lastCard = cards[cards.length - 1];
   state.observer = new IntersectionObserver((entries) => {
-    if (entries.some((entry) => entry.isIntersecting)) loadMoreCards();
-  }, { root: feed, rootMargin: '200% 0px', threshold: 0 });
-  state.observer.observe(lastCard);
+    if (entries.some((entry) => entry.isIntersecting)) onApproachingEnd();
+  }, { root: feed, rootMargin: '100% 0px', threshold: 0 });
+  state.observer.observe(cards[cards.length - 1]);
+}
+function onApproachingEnd() {
+  if (state.loading) return;
+  if (state.buffer.length) {
+    appendBufferedBatch();
+    // Start the next Gemini request early; it fills the buffer, not the visible feed.
+    loadGeneratedBatch({ showLoader: false });
+  } else {
+    loadGeneratedBatch({ showLoader: true });
+  }
 }
 function init() {
   state.reactions = loadReactions();
   renderCategoryBar();
-  loadMoreCards();
+  // Paint three cards synchronously, so a slow or unavailable API never yields a blank screen.
+  state.news = makeExampleCards(state.category);
+  state.seen = new Set(state.news.map((item) => item.reactionKey));
+  appendCards(state.news);
+  loadGeneratedBatch({ initial: true, showLoader: true });
   feed.addEventListener('scroll', () => {
+    if (feed.scrollTop > 0) state.hasScrolled = true;
     const cards = feed.querySelectorAll('.card-snap');
-    if (!cards.length || state.loading || !state.hasMore) return;
+    if (!cards.length || state.loading) return;
     const currentIndex = Math.floor(feed.scrollTop / Math.max(feed.clientHeight, 1));
-    if (cards.length - currentIndex <= 3) loadMoreCards();
+    if (cards.length - currentIndex <= BATCH_SIZE) onApproachingEnd();
   }, { passive: true });
 }
 init();
